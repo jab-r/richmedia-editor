@@ -2,7 +2,7 @@
 // AnimatedPostEditorView.swift
 // RichmediaEditor
 //
-// Main public API - Animated post editor container
+// Main public API - Animated post editor with modern glass UI
 //
 
 import SwiftUI
@@ -17,6 +17,9 @@ public struct AnimatedPostEditorView: View {
     let onCancel: () -> Void
 
     @StateObject private var viewModel = AnimatedPostEditorViewModel()
+    @State private var showTextEditor = false
+    @State private var showAnimationPicker = false
+    @State private var editingLayer: TextLayer?
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
@@ -34,7 +37,15 @@ public struct AnimatedPostEditorView: View {
     // MARK: - Body
 
     public var body: some View {
-        NavigationStack {
+        ZStack {
+            // Background gradient
+            LinearGradient(
+                colors: [Color(.systemBackground), Color(.systemGray6)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 if viewModel.blocks.isEmpty {
                     emptyStateView
@@ -42,21 +53,57 @@ public struct AnimatedPostEditorView: View {
                     editorContentView
                 }
             }
-            .navigationTitle("Animated Post")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        onCancel()
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    onCancel()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("Cancel")
                     }
+                    .foregroundStyle(.secondary)
                 }
+            }
 
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Export") {
-                        handleExport()
+            ToolbarItem(placement: .principal) {
+                Text("Animated Post")
+                    .font(.headline)
+            }
+
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    handleExport()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Export")
                     }
-                    .disabled(!viewModel.validate())
+                    .foregroundStyle(viewModel.validate() ? .blue : .secondary)
                 }
+                .disabled(!viewModel.validate())
+            }
+        }
+        .sheet(isPresented: $showTextEditor) {
+            if let layer = editingLayer,
+               let blockId = viewModel.selectedBlockId,
+               let blockIndex = viewModel.blocks.firstIndex(where: { $0.id == blockId }),
+               let layerIndex = viewModel.blocks[blockIndex].textLayers?.firstIndex(where: { $0.id == layer.id }) {
+                TextLayerEditorSheet(
+                    layer: Binding(
+                        get: { viewModel.blocks[blockIndex].textLayers?[layerIndex] ?? layer },
+                        set: { _ in }
+                    ),
+                    onSave: { updatedLayer in
+                        viewModel.updateLayer(updatedLayer.id, in: blockId) { layer in
+                            layer.text = updatedLayer.text
+                            layer.style = updatedLayer.style
+                            layer.animation = updatedLayer.animation
+                        }
+                    }
+                )
             }
         }
         .onAppear {
@@ -67,31 +114,54 @@ public struct AnimatedPostEditorView: View {
     // MARK: - Views
 
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
+        VStack(spacing: 24) {
+            Spacer()
 
-            Text("Create an Animated Post")
-                .font(.title2)
-                .fontWeight(.semibold)
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 120, height: 120)
 
-            Text("Add photos or videos with animated text overlays")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            VStack(spacing: 12) {
-                Button(action: {
-                    // TODO: Show media picker
-                }) {
-                    Label("Add Photo or Video", systemImage: "photo.on.rectangle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .padding(.horizontal)
+                Image(systemName: "photo.badge.plus")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.blue.gradient)
             }
+
+            // Text
+            VStack(spacing: 8) {
+                Text("Create Animated Post")
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Text("Add photos or videos with animated text overlays")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            // Action button
+            Button(action: {
+                // TODO: Show media picker
+            }) {
+                Label("Add Media", systemImage: "photo.on.rectangle")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(12)
+                    .shadow(color: .blue.opacity(0.3), radius: 10, x: 0, y: 5)
+            }
+
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -100,9 +170,9 @@ public struct AnimatedPostEditorView: View {
         VStack(spacing: 0) {
             // Main canvas area
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     ForEach(viewModel.blocks) { block in
-                        blockPreviewCard(block)
+                        canvasCard(for: block)
                     }
                 }
                 .padding()
@@ -110,88 +180,191 @@ public struct AnimatedPostEditorView: View {
 
             Divider()
 
-            // Bottom toolbar
+            // Bottom toolbar with glass effect
             editorToolbar
+                .background(.ultraThinMaterial)
         }
     }
 
-    private func blockPreviewCard(_ block: RichPostBlock) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Media preview
-            ZStack {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .aspectRatio(9/16, contentMode: .fit)
-
-                if let url = block.url {
-                    Text(url)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-
-                // Layer count badge
-                if let layerCount = block.textLayers?.count, layerCount > 0 {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Text("\(layerCount) layer\(layerCount == 1 ? "" : "s")")
-                                .font(.caption2)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(.ultraThinMaterial)
-                                .cornerRadius(8)
-                                .padding(8)
-                        }
-                        Spacer()
+    @ViewBuilder
+    private func canvasCard(for block: RichPostBlock) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Canvas with media + text layers
+            MediaCanvasView(
+                block: block,
+                selectedLayerId: $viewModel.selectedLayerId,
+                onLayerTap: { layerId in
+                    viewModel.selectLayer(layerId, in: block.id)
+                },
+                onLayerUpdate: { layerId, newPosition in
+                    viewModel.updateLayer(layerId, in: block.id) { layer in
+                        layer.position = newPosition
                     }
                 }
+            )
+
+            // Layer controls with glass cards
+            if let layers = block.textLayers, !layers.isEmpty {
+                layerControlsView(layers: layers, blockId: block.id)
             }
-            .cornerRadius(12)
 
             // Add layer button
             Button(action: {
                 viewModel.addTextLayer(to: block.id)
             }) {
-                Label("Add Text Layer", systemImage: "text.badge.plus")
-                    .font(.subheadline)
-                    .frame(maxWidth: .infinity)
+                HStack {
+                    Image(systemName: "text.badge.plus")
+                    Text("Add Text Layer")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding()
+                .background(.ultraThinMaterial)
+                .cornerRadius(12)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
         }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(radius: 2)
+    }
+
+    @ViewBuilder
+    private func layerControlsView(layers: [TextLayer], blockId: UUID) -> some View {
+        VStack(spacing: 8) {
+            Text("Layers")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            ForEach(layers) { layer in
+                HStack(spacing: 12) {
+                    // Visibility toggle
+                    Button(action: {
+                        viewModel.toggleLayerVisibility(layer.id, in: blockId)
+                    }) {
+                        Image(systemName: layer.visible ? "eye.fill" : "eye.slash.fill")
+                            .foregroundColor(layer.visible ? .blue : .secondary)
+                            .frame(width: 24)
+                    }
+
+                    // Layer preview
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(layer.text.isEmpty ? "Empty" : layer.text)
+                            .font(.subheadline)
+                            .lineLimit(1)
+
+                        if let animation = layer.animation {
+                            Text(animation.preset.displayName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Edit button
+                    Button(action: {
+                        editingLayer = layer
+                        viewModel.selectLayer(layer.id, in: blockId)
+                        showTextEditor = true
+                    }) {
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundStyle(.blue.gradient)
+                            .font(.title3)
+                    }
+
+                    // Delete button
+                    Button(action: {
+                        viewModel.deleteLayer(layer.id, from: blockId)
+                    }) {
+                        Image(systemName: "trash.circle.fill")
+                            .foregroundColor(.red)
+                            .font(.title3)
+                    }
+                }
+                .padding(12)
+                .background(
+                    viewModel.selectedLayerId == layer.id ?
+                        AnyView(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(.blue.opacity(0.1))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(.blue, lineWidth: 2)
+                                )
+                        ) :
+                        AnyView(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(.ultraThinMaterial)
+                        )
+                )
+            }
+        }
     }
 
     private var editorToolbar: some View {
         HStack(spacing: 20) {
+            // Play/Pause button
             Button(action: {
                 viewModel.togglePlayback()
             }) {
-                Label(viewModel.isPlaying ? "Pause" : "Play", systemImage: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                VStack(spacing: 4) {
+                    Image(systemName: viewModel.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.blue.gradient)
+                    Text(viewModel.isPlaying ? "Pause" : "Play")
+                        .font(.caption2)
+                }
             }
 
             Spacer()
 
+            // Add media button
             Button(action: {
                 // TODO: Show media picker
             }) {
-                Label("Media", systemImage: "photo")
+                VStack(spacing: 4) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.title2)
+                        .foregroundStyle(.purple.gradient)
+                    Text("Media")
+                        .font(.caption2)
+                }
             }
 
+            // Add text button
             Button(action: {
-                if let blockId = viewModel.selectedBlockId {
+                if let blockId = viewModel.selectedBlockId ?? viewModel.blocks.first?.id {
                     viewModel.addTextLayer(to: blockId)
                 }
             }) {
-                Label("Text", systemImage: "textformat")
+                VStack(spacing: 4) {
+                    Image(systemName: "textformat")
+                        .font(.title2)
+                        .foregroundStyle(.green.gradient)
+                    Text("Text")
+                        .font(.caption2)
+                }
             }
-            .disabled(viewModel.selectedBlockId == nil)
+            .disabled(viewModel.blocks.isEmpty)
+
+            Spacer()
+
+            // Info button
+            Button(action: {
+                // TODO: Show help/tips
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "info.circle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                    Text("Help")
+                        .font(.caption2)
+                }
+            }
         }
-        .padding()
-        .background(Color(.systemGray6))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Actions
@@ -200,14 +373,12 @@ public struct AnimatedPostEditorView: View {
         guard let media = initialMedia else { return }
 
         // TODO: Handle initial media input
-        // For now, this is a placeholder
+        // For now, create a placeholder block
         switch media {
         case .image:
-            // Would add image block
-            break
+            viewModel.addImageBlock(url: "placeholder", mediaId: "temp")
         case .video:
-            // Would add video block
-            break
+            viewModel.addVideoBlock(url: "placeholder", mediaId: "temp")
         }
     }
 
