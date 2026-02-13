@@ -210,6 +210,16 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Lottie Management
+
+    public func setLottieOverlay(_ lottie: LottieAnimation, for blockId: UUID? = nil) {
+        let targetBlockId = blockId ?? selectedBlockId
+        guard let blockIndex = blocks.firstIndex(where: { $0.id == targetBlockId }) else {
+            return
+        }
+        blocks[blockIndex].lottieOverlay = lottie
+    }
+
     // MARK: - Playback
 
     public func togglePlayback() {

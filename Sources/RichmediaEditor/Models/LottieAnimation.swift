@@ -39,30 +39,4 @@ public struct LottieAnimation: Codable, Equatable {
     }
 }
 
-/// Extended TextLayer to support Lottie animations
-extension TextLayer {
-    /// Lottie animation data (alternative to preset animations)
-    public var lottieAnimation: LottieAnimation? {
-        get {
-            // TODO: Store in custom metadata field
-            return nil
-        }
-        set {
-            // TODO: Store in custom metadata field
-        }
-    }
-}
-
-/// Extended RichPostBlock to support full-canvas Lottie overlays
-extension RichPostBlock {
-    /// Lottie overlay animation (plays on top of media)
-    public var lottieOverlay: LottieAnimation? {
-        get {
-            // TODO: Store in custom metadata field
-            return nil
-        }
-        set {
-            // TODO: Store in custom metadata field
-        }
-    }
-}
+// Lottie metadata fields are now stored directly in TextLayer and RichPostBlock models

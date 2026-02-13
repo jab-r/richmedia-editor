@@ -15,6 +15,7 @@ struct MediaCanvasView: View {
     @Binding var selectedLayerId: UUID?
     let onLayerTap: (UUID) -> Void
     let onLayerUpdate: (UUID, LayerPosition) -> Void
+    var isPlaying: Bool = false  // For Lottie playback control
 
     @State private var player: AVPlayer?
 
@@ -28,6 +29,11 @@ struct MediaCanvasView: View {
                     imageBackground(url: url)
                 } else {
                     placeholderBackground
+                }
+
+                // Lottie overlay (if present)
+                if let lottie = block.lottieOverlay {
+                    LottieOverlayView(animation: lottie, play: isPlaying)
                 }
 
                 // Text layer overlays

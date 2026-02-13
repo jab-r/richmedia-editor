@@ -134,6 +134,11 @@ public struct GalleryPlayerView: View {
                     }
                 }
 
+                // Lottie overlay (if present)
+                if let lottie = block.lottieOverlay {
+                    LottieOverlayView(animation: lottie, play: isPlaying)
+                }
+
                 // Animated text layers
                 if let textLayers = block.textLayers {
                     ForEach(textLayers.filter { $0.visible }) { layer in

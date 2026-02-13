@@ -138,11 +138,9 @@ public struct AnimatedPostEditorView: View {
         }
         .sheet(isPresented: $showLottiePicker) {
             LottiePickerView { lottieAnimation in
-                // TODO: Add Lottie overlay to selected block
+                // Add Lottie overlay to selected block (or first block if none selected)
                 if let blockId = viewModel.selectedBlockId ?? viewModel.blocks.first?.id {
-                    // For now, create a text layer with Lottie reference
-                    // In future: store in block.lottieOverlay
-                    viewModel.addTextLayer(to: blockId)
+                    viewModel.setLottieOverlay(lottieAnimation, for: blockId)
                 }
             }
         }
@@ -283,7 +281,8 @@ public struct AnimatedPostEditorView: View {
                     viewModel.updateLayer(layerId, in: block.id) { layer in
                         layer.position = newPosition
                     }
-                }
+                },
+                isPlaying: viewModel.isPlaying
             )
 
             // Layer controls with glass cards
@@ -505,39 +504,46 @@ public struct AnimatedPostEditorView: View {
                     .fontWeight(.bold)
                     .padding(.top, 20)
 
-                Text("Loxation will handle media selection. This is a placeholder for the integration point.")
+                Text("This is a placeholder for media selection integration.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
-                // Placeholder buttons
-                VStack(spacing: 12) {
-                    Button(action: {
-                        // Placeholder: Loxation provides PHMediaPicker
-                        // For now, create demo block
-                        viewModel.addImageBlock(url: "https://picsum.photos/400/711", mediaId: "demo")
-                        showMediaTypePicker = false
-                    }) {
-                        Label("Photo Library", systemImage: "photo.on.rectangle")
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(12)
-                    }
+                VStack(alignment: .leading, spacing: 12) {
+                    Group {
+                        Text("**Integration Pattern:**")
+                            .font(.headline)
 
-                    Button(action: {
-                        // Placeholder: Loxation provides camera
-                        viewModel.addVideoBlock(url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", mediaId: "demo")
-                        showMediaTypePicker = false
-                    }) {
-                        Label("Camera", systemImage: "camera")
-                            .frame(maxWidth: .infinity)
+                        Text("Replace this view with Loxation's PHMediaPicker:")
+                            .font(.subheadline)
+
+                        Text("""
+                        ```swift
+                        PHMediaPicker { pickedMedia in
+                            // Convert to MediaInput
+                            let mediaInput = convertToMediaInput(pickedMedia)
+
+                            // Pass to editor via initialMedia parameter
+                            AnimatedPostEditorView(
+                                initialMedia: mediaInput,
+                                onComplete: { richContent in ... }
+                            )
+                        }
+                        ```
+                        """)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                             .padding()
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(12)
+                            .background(Color(.systemGray6))
+                            .cornerRadius(8)
+
+                        Text("See INTEGRATION.md for complete integration guide.")
+                            .font(.caption)
+                            .foregroundColor(.blue)
                     }
                 }
+                .padding(.horizontal)
                 .padding()
 
                 Spacer()
@@ -651,13 +657,21 @@ public struct AnimatedPostEditorView: View {
         guard let media = initialMedia else { return }
 
         // Create block from initial media
+        // IMPORTANT: Consuming app must upload media BEFORE passing to editor
         switch media {
-        case .image:
-            // Loxation will provide UIImage → we need to get URL after upload
-            // For now, placeholder URL
-            viewModel.addImageBlock(url: "placeholder", mediaId: "temp")
-        case .video(let url):
-            viewModel.addVideoBlock(url: url.absoluteString, mediaId: "temp")
+        case .image(_, let url, let mediaId):
+            guard let uploadedUrl = url, let id = mediaId else {
+                // Image not yet uploaded - consuming app must handle upload first
+                print("⚠️ Image must be uploaded before initializing editor")
+                print("   Pass MediaInput.image(uiImage, url: uploadedUrl, mediaId: id)")
+                print("   See INTEGRATION.md for upload pattern with PostMediaService")
+                return
+            }
+            viewModel.addImageBlock(url: uploadedUrl, mediaId: id)
+
+        case .video(let videoUrl, let mediaId):
+            let id = mediaId ?? videoUrl.lastPathComponent
+            viewModel.addVideoBlock(url: videoUrl.absoluteString, mediaId: id)
         }
     }
 

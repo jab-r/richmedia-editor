@@ -24,7 +24,10 @@ let package = Package(
             dependencies: [
                 .product(name: "Lottie", package: "lottie-ios"),
             ],
-            path: "Sources/RichmediaEditor"
+            path: "Sources/RichmediaEditor",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "RichmediaEditorTests",

@@ -11,8 +11,12 @@ import Foundation
 import UIKit
 
 public enum MediaInput: Equatable {
-    case image(UIImage)
-    case video(URL)
+    /// Image with optional uploaded URL and media ID
+    /// If url/mediaId are nil, consuming app must upload before using editor
+    case image(UIImage, url: String? = nil, mediaId: String? = nil)
+
+    /// Video with local or remote URL
+    case video(URL, mediaId: String? = nil)
 
     public var isVideo: Bool {
         if case .video = self {
@@ -26,6 +30,26 @@ public enum MediaInput: Equatable {
             return true
         }
         return false
+    }
+
+    /// Uploaded URL (for images) or video URL
+    public var url: String? {
+        switch self {
+        case .image(_, let url, _):
+            return url
+        case .video(let videoUrl, _):
+            return videoUrl.absoluteString
+        }
+    }
+
+    /// Media ID for tracking
+    public var mediaId: String? {
+        switch self {
+        case .image(_, _, let id):
+            return id
+        case .video(_, let id):
+            return id
+        }
     }
 }
 #endif

@@ -16,6 +16,8 @@ struct LottiePickerView: View {
 
     @State private var showFilePicker = false
     @State private var showTemplates = true
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     var body: some View {
         NavigationStack {
@@ -49,6 +51,11 @@ struct LottiePickerView: View {
                 allowsMultipleSelection: false
             ) { result in
                 handleFileImport(result)
+            }
+            .alert("Import Failed", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
             }
         }
     }
@@ -173,12 +180,13 @@ struct LottiePickerView: View {
                 onSelect(animation)
                 dismiss()
             } else {
-                // TODO: Show error alert
-                print("Failed to import Lottie animation")
+                errorMessage = "The selected file is not a valid Lottie animation. Please select a JSON file exported from After Effects using the Bodymovin plugin."
+                showErrorAlert = true
             }
 
         case .failure(let error):
-            print("File picker error: \(error)")
+            errorMessage = "Failed to read file: \(error.localizedDescription)"
+            showErrorAlert = true
         }
     }
 }
@@ -243,10 +251,18 @@ enum LottieTemplates {
     ]
 
     static func loadTemplate(_ template: LottieTemplate) -> LottieAnimation? {
-        // Placeholder: In production, these would be bundled JSON files
-        // For now, return a simple animated structure
+        // Try to load from bundle resources first
+        if let url = Bundle.module.url(forResource: template.filename, withExtension: "json", subdirectory: "LottieTemplates"),
+           let data = try? Data(contentsOf: url),
+           let jsonString = String(data: data, encoding: .utf8),
+           let animation = LottieImporter.importAnimation(from: data, name: template.name) {
+            return animation
+        }
 
-        let sampleLottieJSON = """
+        // Fallback: Return placeholder JSON if real file not found
+        // See Sources/RichmediaEditor/Resources/LottieTemplates/README.md for instructions
+        // on adding real Lottie animation files
+        let placeholderJSON = """
         {
           "v": "5.7.4",
           "fr": 60,
@@ -262,7 +278,7 @@ enum LottieTemplates {
         """
 
         return LottieAnimation(
-            jsonData: sampleLottieJSON,
+            jsonData: placeholderJSON,
             name: template.name,
             duration: 2.0,
             frameRate: 60,

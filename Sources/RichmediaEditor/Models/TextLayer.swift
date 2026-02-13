@@ -18,6 +18,9 @@ public struct TextLayer: Codable, Identifiable, Equatable {
     public var visible: Bool
     public var zIndex: Int
 
+    // Lottie animation (alternative to preset animations)
+    public var lottieAnimation: LottieAnimation?
+
     public init(
         id: UUID = UUID(),
         text: String,
@@ -26,7 +29,8 @@ public struct TextLayer: Codable, Identifiable, Equatable {
         animation: TextAnimation? = nil,
         path: AnimationPath? = nil,
         visible: Bool = true,
-        zIndex: Int = 0
+        zIndex: Int = 0,
+        lottieAnimation: LottieAnimation? = nil
     ) {
         self.id = id
         self.text = text
@@ -36,5 +40,6 @@ public struct TextLayer: Codable, Identifiable, Equatable {
         self.path = path
         self.visible = visible
         self.zIndex = zIndex
+        self.lottieAnimation = lottieAnimation
     }
 }
