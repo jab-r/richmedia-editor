@@ -23,6 +23,7 @@ public struct AnimatedPostEditorView: View {
     @State private var showMediaTypePicker = false
     @State private var showHelp = false
     @State private var showLottiePicker = false
+    @State private var isGalleryMode = false  // TikTok-style gallery view
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
@@ -207,14 +208,19 @@ public struct AnimatedPostEditorView: View {
 
     private var editorContentView: some View {
         VStack(spacing: 0) {
+            // Gallery mode toggle (if 2+ blocks)
+            if viewModel.blocks.count >= 2 {
+                GalleryModeToggle(isGalleryMode: $isGalleryMode, blockCount: viewModel.blocks.count)
+                    .padding(.top, 8)
+            }
+
             // Main canvas area
-            ScrollView {
-                VStack(spacing: 20) {
-                    ForEach(viewModel.blocks) { block in
-                        canvasCard(for: block)
-                    }
-                }
-                .padding()
+            if isGalleryMode && viewModel.blocks.count >= 2 {
+                // TikTok-style horizontal gallery
+                galleryView
+            } else {
+                // Stack view (original)
+                stackView
             }
 
             Divider()
@@ -222,6 +228,44 @@ public struct AnimatedPostEditorView: View {
             // Bottom toolbar with glass effect
             editorToolbar
                 .background(.ultraThinMaterial)
+        }
+    }
+
+    private var stackView: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                ForEach(viewModel.blocks) { block in
+                    canvasCard(for: block)
+                }
+            }
+            .padding()
+        }
+    }
+
+    private var galleryView: some View {
+        VStack(spacing: 12) {
+            GalleryCanvasView(
+                blocks: viewModel.blocks,
+                selectedBlockId: $viewModel.selectedBlockId,
+                selectedLayerId: $viewModel.selectedLayerId,
+                onLayerTap: { blockId, layerId in
+                    viewModel.selectLayer(layerId, in: blockId)
+                },
+                onLayerUpdate: { blockId, layerId, position in
+                    viewModel.updateLayer(layerId, in: blockId) { layer in
+                        layer.position = position
+                    }
+                }
+            )
+            .padding(.horizontal)
+
+            // Layer controls for current page
+            if let selectedBlockId = viewModel.selectedBlockId,
+               let block = viewModel.blocks.first(where: { $0.id == selectedBlockId }),
+               let layers = block.textLayers, !layers.isEmpty {
+                layerControlsView(layers: layers, blockId: selectedBlockId)
+                    .padding(.horizontal)
+            }
         }
     }
 
