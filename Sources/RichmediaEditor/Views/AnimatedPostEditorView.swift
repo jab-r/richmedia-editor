@@ -253,7 +253,8 @@ public struct AnimatedPostEditorView: View {
                     viewModel.updateLayer(layerId, in: blockId) { layer in
                         layer.position = position
                     }
-                }
+                },
+                localImages: viewModel.localImages
             )
             .padding(.horizontal)
 
@@ -282,7 +283,8 @@ public struct AnimatedPostEditorView: View {
                         layer.position = newPosition
                     }
                 },
-                isPlaying: viewModel.isPlaying
+                isPlaying: viewModel.isPlaying,
+                localImage: viewModel.localImages[block.id]
             )
 
             // Layer controls with glass cards
@@ -432,18 +434,20 @@ public struct AnimatedPostEditorView: View {
 
             Spacer()
 
-            // Add media button
+            // Add media button (disabled for single-block editing)
             Button(action: {
                 showMediaTypePicker = true
             }) {
                 VStack(spacing: 4) {
                     Image(systemName: "photo.badge.plus")
                         .font(.title2)
-                        .foregroundStyle(.purple.gradient)
+                        .foregroundStyle(.secondary.opacity(0.5))
                     Text("Media")
                         .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
             }
+            .disabled(true)  // Multi-block editing not yet supported
 
             // Add text button
             Button(action: {
@@ -498,59 +502,28 @@ public struct AnimatedPostEditorView: View {
 
     private var mediaTypePickerView: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("Add Media")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding(.top, 20)
+            VStack(spacing: 24) {
+                Spacer()
 
-                Text("This is a placeholder for media selection integration.")
+                Image(systemName: "photo.stack")
+                    .font(.system(size: 60))
+                    .foregroundColor(.secondary)
+
+                Text("Gallery Mode Coming Soon")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Multiple media blocks can be added in a future version. For now, edit the current media.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Group {
-                        Text("**Integration Pattern:**")
-                            .font(.headline)
-
-                        Text("Replace this view with Loxation's PHMediaPicker:")
-                            .font(.subheadline)
-
-                        Text("""
-                        ```swift
-                        PHMediaPicker { pickedMedia in
-                            // Convert to MediaInput
-                            let mediaInput = convertToMediaInput(pickedMedia)
-
-                            // Pass to editor via initialMedia parameter
-                            AnimatedPostEditorView(
-                                initialMedia: mediaInput,
-                                onComplete: { richContent in ... }
-                            )
-                        }
-                        ```
-                        """)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(8)
-
-                        Text("See INTEGRATION.md for complete integration guide.")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-                }
-                .padding(.horizontal)
-                .padding()
+                    .padding(.horizontal, 40)
 
                 Spacer()
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Close") {
                         showMediaTypePicker = false
                     }
                 }
@@ -656,22 +629,25 @@ public struct AnimatedPostEditorView: View {
     private func setupInitialMedia() {
         guard let media = initialMedia else { return }
 
-        // Create block from initial media
-        // IMPORTANT: Consuming app must upload media BEFORE passing to editor
+        // Create block from initial media - supports both local and uploaded media
         switch media {
-        case .image(_, let url, let mediaId):
-            guard let uploadedUrl = url, let id = mediaId else {
-                // Image not yet uploaded - consuming app must handle upload first
-                print("⚠️ Image must be uploaded before initializing editor")
-                print("   Pass MediaInput.image(uiImage, url: uploadedUrl, mediaId: id)")
-                print("   See INTEGRATION.md for upload pattern with PostMediaService")
-                return
+        case .image(let uiImage, let url, let mediaId):
+            if let uploadedUrl = url, let id = mediaId {
+                // Already uploaded - use URL
+                viewModel.addImageBlock(url: uploadedUrl, mediaId: id)
+            } else {
+                // Local image - store in viewModel for editing
+                viewModel.addLocalImageBlock(image: uiImage)
             }
-            viewModel.addImageBlock(url: uploadedUrl, mediaId: id)
 
         case .video(let videoUrl, let mediaId):
-            let id = mediaId ?? videoUrl.lastPathComponent
-            viewModel.addVideoBlock(url: videoUrl.absoluteString, mediaId: id)
+            if let id = mediaId {
+                // Uploaded video
+                viewModel.addVideoBlock(url: videoUrl.absoluteString, mediaId: id)
+            } else {
+                // Local video file URL
+                viewModel.addLocalVideoBlock(localURL: videoUrl)
+            }
         }
     }
 

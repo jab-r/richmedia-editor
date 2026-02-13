@@ -16,6 +16,7 @@ struct MediaCanvasView: View {
     let onLayerTap: (UUID) -> Void
     let onLayerUpdate: (UUID, LayerPosition) -> Void
     var isPlaying: Bool = false  // For Lottie playback control
+    var localImage: UIImage? = nil  // For local images not yet uploaded
 
     @State private var player: AVPlayer?
 
@@ -23,7 +24,10 @@ struct MediaCanvasView: View {
         GeometryReader { geometry in
             ZStack {
                 // Background media
-                if block.video != nil, let urlString = block.url, let url = URL(string: urlString) {
+                if let uiImage = localImage {
+                    // Local UIImage (not yet uploaded)
+                    localImageBackground(image: uiImage)
+                } else if block.video != nil, let urlString = block.url, let url = URL(string: urlString) {
                     videoBackground(url: url)
                 } else if block.image != nil, let urlString = block.url, let url = URL(string: urlString) {
                     imageBackground(url: url)
@@ -59,6 +63,13 @@ struct MediaCanvasView: View {
             player?.pause()
             player = nil
         }
+    }
+
+    @ViewBuilder
+    private func localImageBackground(image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFit()
     }
 
     @ViewBuilder

@@ -19,6 +19,12 @@ public class AnimatedPostEditorViewModel: ObservableObject {
     @Published public var showingAnimationPicker = false
     @Published public var isPlaying = false
 
+    // MARK: - Local Media Storage
+
+    /// Stores UIImages for blocks that haven't been uploaded yet
+    /// Key: block.id, Value: UIImage
+    @Published public var localImages: [UUID: UIImage] = [:]
+
     // MARK: - Computed Properties
 
     public var richContent: RichPostContent {
@@ -55,6 +61,19 @@ public class AnimatedPostEditorViewModel: ObservableObject {
 
     // MARK: - Block Management
 
+    /// Add image block with local UIImage (not yet uploaded)
+    public func addLocalImageBlock(image: UIImage) {
+        let newBlock = RichPostBlock(
+            image: "local",  // Placeholder - will be replaced on upload
+            url: nil,  // No URL until uploaded
+            textLayers: []
+        )
+        blocks.append(newBlock)
+        localImages[newBlock.id] = image
+        selectedBlockId = newBlock.id
+    }
+
+    /// Add image block with uploaded URL (after upload)
     public func addImageBlock(url: String, mediaId: String) {
         let newBlock = RichPostBlock(
             image: mediaId,
@@ -65,6 +84,18 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         selectedBlockId = newBlock.id
     }
 
+    /// Add video block with local URL (not yet uploaded)
+    public func addLocalVideoBlock(localURL: URL) {
+        let newBlock = RichPostBlock(
+            video: "local",  // Placeholder - will be replaced on upload
+            url: localURL.absoluteString,  // Local file URL
+            textLayers: []
+        )
+        blocks.append(newBlock)
+        selectedBlockId = newBlock.id
+    }
+
+    /// Add video block with uploaded URL (after upload)
     public func addVideoBlock(url: String, mediaId: String) {
         let newBlock = RichPostBlock(
             video: mediaId,

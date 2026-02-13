@@ -16,6 +16,7 @@ struct GalleryCanvasView: View {
     @Binding var selectedLayerId: UUID?
     let onLayerTap: (UUID, UUID) -> Void  // blockId, layerId
     let onLayerUpdate: (UUID, UUID, LayerPosition) -> Void  // blockId, layerId, position
+    var localImages: [UUID: UIImage] = [:]  // Local images not yet uploaded
 
     @State private var currentPage = 0
 
@@ -33,7 +34,8 @@ struct GalleryCanvasView: View {
                         },
                         onLayerUpdate: { layerId, position in
                             onLayerUpdate(block.id, layerId, position)
-                        }
+                        },
+                        localImage: localImages[block.id]
                     )
                     .tag(index)
                 }
