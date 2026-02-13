@@ -22,6 +22,7 @@ public struct AnimatedPostEditorView: View {
     @State private var editingLayer: TextLayer?
     @State private var showMediaTypePicker = false
     @State private var showHelp = false
+    @State private var showLottiePicker = false
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
@@ -133,6 +134,16 @@ public struct AnimatedPostEditorView: View {
         }
         .sheet(isPresented: $showHelp) {
             helpView
+        }
+        .sheet(isPresented: $showLottiePicker) {
+            LottiePickerView { lottieAnimation in
+                // TODO: Add Lottie overlay to selected block
+                if let blockId = viewModel.selectedBlockId ?? viewModel.blocks.first?.id {
+                    // For now, create a text layer with Lottie reference
+                    // In future: store in block.lottieOverlay
+                    viewModel.addTextLayer(to: blockId)
+                }
+            }
         }
         .onAppear {
             setupInitialMedia()
@@ -402,6 +413,20 @@ public struct AnimatedPostEditorView: View {
                         .font(.title2)
                         .foregroundStyle(.green.gradient)
                     Text("Text")
+                        .font(.caption2)
+                }
+            }
+            .disabled(viewModel.blocks.isEmpty)
+
+            // Lottie button
+            Button(action: {
+                showLottiePicker = true
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: "sparkles.tv")
+                        .font(.title2)
+                        .foregroundStyle(.orange.gradient)
+                    Text("Lottie")
                         .font(.caption2)
                 }
             }

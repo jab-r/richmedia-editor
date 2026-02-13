@@ -15,14 +15,15 @@ let package = Package(
             targets: ["RichmediaEditor"]),
     ],
     dependencies: [
-        // No external dependencies for MVP
-        // Future: Add Lottie for Phase 6
-        // .package(url: "https://github.com/airbnb/lottie-ios.git", from: "4.0.0"),
+        // Phase 6: Lottie for professional animations
+        .package(url: "https://github.com/airbnb/lottie-ios.git", from: "4.4.0"),
     ],
     targets: [
         .target(
             name: "RichmediaEditor",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Lottie", package: "lottie-ios"),
+            ],
             path: "Sources/RichmediaEditor"
         ),
         .testTarget(
