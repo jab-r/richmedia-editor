@@ -65,7 +65,7 @@ struct GalleryCanvasView: View {
             }) {
                 Image(systemName: "chevron.left.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(currentPage > 0 ? .blue.gradient : .secondary.opacity(0.3))
+                    .foregroundColor(currentPage > 0 ? .blue : .secondary.opacity(0.3))
             }
             .disabled(currentPage == 0)
 
@@ -89,7 +89,7 @@ struct GalleryCanvasView: View {
             }) {
                 Image(systemName: "chevron.right.circle.fill")
                     .font(.title3)
-                    .foregroundStyle(currentPage < blocks.count - 1 ? .blue.gradient : .secondary.opacity(0.3))
+                    .foregroundColor(currentPage < blocks.count - 1 ? .blue : .secondary.opacity(0.3))
             }
             .disabled(currentPage == blocks.count - 1)
         }
@@ -114,7 +114,7 @@ struct GalleryModeToggle: View {
                     Text("Stack")
                         .font(.caption2)
                 }
-                .foregroundStyle(isGalleryMode ? .secondary : .blue.gradient)
+                .foregroundColor(isGalleryMode ? .secondary : .blue)
             }
 
             Divider()
@@ -131,14 +131,14 @@ struct GalleryModeToggle: View {
                     Text("Gallery")
                         .font(.caption2)
                 }
-                .foregroundStyle(isGalleryMode ? .blue.gradient : .secondary)
+                .foregroundColor(isGalleryMode ? .blue : .secondary)
             }
             .disabled(blockCount < 2)
 
             if blockCount < 2 {
                 Text("(2+ photos)")
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(8)

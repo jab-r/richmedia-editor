@@ -82,20 +82,17 @@ public enum LottieImporter {
 
     /// Create LottieAnimationView from LottieAnimation model
     public static func createAnimationView(from animation: LottieAnimation) -> LottieAnimationView? {
-        guard let data = animation.jsonData.data(using: .utf8) else {
-            return nil
+        let animationView = LottieAnimationView()
+        animationView.contentMode = .scaleAspectFit
+        animationView.loopMode = animation.loops ? .loop : .playOnce
+
+        // Load animation from JSON data
+        if let data = animation.jsonData.data(using: .utf8),
+           let lottieAnimation = try? JSONDecoder().decode(Lottie.LottieAnimation.self, from: data) {
+            animationView.animation = lottieAnimation
         }
 
-        do {
-            let lottieAnimation = try LottieAnimation.from(data: data)
-            let animationView = LottieAnimationView(animation: lottieAnimation)
-            animationView.loopMode = animation.loops ? .loop : .playOnce
-            animationView.contentMode = .scaleAspectFit
-            return animationView
-        } catch {
-            print("Failed to create Lottie animation: \(error)")
-            return nil
-        }
+        return animationView
     }
 }
 

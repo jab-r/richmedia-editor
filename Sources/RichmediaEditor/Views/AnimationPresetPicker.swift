@@ -82,10 +82,7 @@ struct PresetThumbnail: View {
                     .frame(width: 100, height: 100)
 
                 // Animated preview text
-                Text("Aa")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.primary)
-                    .modifier(previewAnimation)
+                previewText
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
@@ -105,96 +102,98 @@ struct PresetThumbnail: View {
     }
 
     @ViewBuilder
-    private var previewAnimation: some View {
-        Group {
-            switch preset {
-            // Entrance
-            case .fadeIn:
-                PreviewModifier(animation: .easeIn(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 1 : 0)
-                }
-            case .fadeSlideUp:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 1 : 0)
-                        .offset(y: isAnimating ? 0 : 20)
-                }
-            case .fadeSlideDown:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 1 : 0)
-                        .offset(y: isAnimating ? 0 : -20)
-                }
-            case .fadeSlideLeft:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 1 : 0)
-                        .offset(x: isAnimating ? 0 : 20)
-                }
-            case .fadeSlideRight:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 1 : 0)
-                        .offset(x: isAnimating ? 0 : -20)
-                }
-            case .zoomIn:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.scaleEffect(isAnimating ? 1.0 : 0.5)
-                        .opacity(isAnimating ? 1 : 0)
-                }
-            case .bounceIn:
-                PreviewModifier(animation: .spring(response: 0.6, dampingFraction: 0.6).repeatForever()) {
-                    $0.scaleEffect(isAnimating ? 1.0 : 0)
-                }
-            case .popIn:
-                PreviewModifier(animation: .spring(response: 0.6, dampingFraction: 0.7).repeatForever()) {
-                    $0.scaleEffect(isAnimating ? 1.0 : 0.3)
-                        .opacity(isAnimating ? 1 : 0)
-                }
+    private var previewText: some View {
+        let baseText = Text("Aa")
+            .font(.system(size: 32, weight: .bold))
+            .foregroundColor(.primary)
 
-            // Exit
-            case .fadeOut:
-                PreviewModifier(animation: .easeOut(duration: 1.0).repeatForever()) {
-                    $0.opacity(isAnimating ? 0 : 1)
-                }
-            case .slideOutUp:
-                PreviewModifier(animation: .easeIn(duration: 1.0).repeatForever()) {
-                    $0.offset(y: isAnimating ? -20 : 0)
-                        .opacity(isAnimating ? 0 : 1)
-                }
-            case .slideOutDown:
-                PreviewModifier(animation: .easeIn(duration: 1.0).repeatForever()) {
-                    $0.offset(y: isAnimating ? 20 : 0)
-                        .opacity(isAnimating ? 0 : 1)
-                }
-            case .zoomOut:
-                PreviewModifier(animation: .easeIn(duration: 1.0).repeatForever()) {
-                    $0.scaleEffect(isAnimating ? 0.5 : 1.0)
-                        .opacity(isAnimating ? 0 : 1)
-                }
+        switch preset {
+        // Entrance
+        case .fadeIn:
+            baseText
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
+        case .fadeSlideUp:
+            baseText
+                .opacity(isAnimating ? 1 : 0)
+                .offset(y: isAnimating ? 0 : 20)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .fadeSlideDown:
+            baseText
+                .opacity(isAnimating ? 1 : 0)
+                .offset(y: isAnimating ? 0 : -20)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .fadeSlideLeft:
+            baseText
+                .opacity(isAnimating ? 1 : 0)
+                .offset(x: isAnimating ? 0 : 20)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .fadeSlideRight:
+            baseText
+                .opacity(isAnimating ? 1 : 0)
+                .offset(x: isAnimating ? 0 : -20)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .zoomIn:
+            baseText
+                .scaleEffect(isAnimating ? 1.0 : 0.5)
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .bounceIn:
+            baseText
+                .scaleEffect(isAnimating ? 1.0 : 0)
+                .animation(.spring(response: 0.6, dampingFraction: 0.6).repeatForever(), value: isAnimating)
+        case .popIn:
+            baseText
+                .scaleEffect(isAnimating ? 1.0 : 0.3)
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.spring(response: 0.6, dampingFraction: 0.7).repeatForever(), value: isAnimating)
 
-            // Loop
-            case .pulse:
-                PreviewModifier(animation: .easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                    $0.scaleEffect(isAnimating ? 1.1 : 1.0)
-                }
-            case .bounce:
-                PreviewModifier(animation: .easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
-                    $0.offset(y: isAnimating ? -10 : 0)
-                }
-            case .float:
-                PreviewModifier(animation: .easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                    $0.offset(y: isAnimating ? -8 : 8)
-                }
-            case .wiggle:
-                PreviewModifier(animation: .easeInOut(duration: 0.4).repeatForever(autoreverses: true)) {
-                    $0.rotationEffect(.degrees(isAnimating ? 5 : -5))
-                }
-            case .rotate:
-                PreviewModifier(animation: .linear(duration: 2.0).repeatForever(autoreverses: false)) {
-                    $0.rotationEffect(.degrees(isAnimating ? 360 : 0))
-                }
+        // Exit
+        case .fadeOut:
+            baseText
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .slideOutUp:
+            baseText
+                .offset(y: isAnimating ? -20 : 0)
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
+        case .slideOutDown:
+            baseText
+                .offset(y: isAnimating ? 20 : 0)
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
+        case .zoomOut:
+            baseText
+                .scaleEffect(isAnimating ? 0.5 : 1.0)
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
 
-            // Path (placeholder)
-            case .motionPath, .curvePath:
-                EmptyView()
-            }
+        // Loop
+        case .pulse:
+            baseText
+                .scaleEffect(isAnimating ? 1.1 : 1.0)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+        case .bounce:
+            baseText
+                .offset(y: isAnimating ? -10 : 0)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: isAnimating)
+        case .float:
+            baseText
+                .offset(y: isAnimating ? -8 : 8)
+                .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
+        case .wiggle:
+            baseText
+                .rotationEffect(.degrees(isAnimating ? 5 : -5))
+                .animation(.easeInOut(duration: 0.4).repeatForever(autoreverses: true), value: isAnimating)
+        case .rotate:
+            baseText
+                .rotationEffect(.degrees(isAnimating ? 360 : 0))
+                .animation(.linear(duration: 2.0).repeatForever(autoreverses: false), value: isAnimating)
+
+        // Path (placeholder)
+        case .motionPath, .curvePath:
+            baseText
         }
     }
 

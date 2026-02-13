@@ -166,13 +166,13 @@ struct PathAnimatedView<Content: View>: UIViewRepresentable {
     let duration: TimeInterval
     let delay: TimeInterval
 
-    func makeUIView(context: Context) -> UIHostingController<Content>.View {
+    func makeUIView(context: Context) -> UIView {
         let hostingController = UIHostingController(rootView: content)
         hostingController.view.backgroundColor = .clear
         return hostingController.view
     }
 
-    func updateUIView(_ uiView: UIHostingController<Content>.View, context: Context) {
+    func updateUIView(_ uiView: UIView, context: Context) {
         // Apply animation when view updates
         PathAnimationRenderer.animateAlongPath(
             view: uiView,

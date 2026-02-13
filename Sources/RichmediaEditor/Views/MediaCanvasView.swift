@@ -231,7 +231,7 @@ struct TextLayerOverlay: View {
         }
     }
 
-    private func alignmentForStyle(_ style: TextLayerStyle) -> TextAlignment {
+    private func alignmentForStyle(_ style: TextLayerStyle) -> SwiftUI.TextAlignment {
         switch style.align {
         case .left: return .leading
         case .center: return .center
