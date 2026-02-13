@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 #if canImport(UIKit)
 
@@ -20,7 +22,8 @@ public struct AnimatedPostEditorView: View {
     @State private var showTextEditor = false
     @State private var showPathDrawing = false
     @State private var editingLayer: TextLayer?
-    @State private var showMediaTypePicker = false
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
+    @State private var mediaPickerTarget: UUID?
     @State private var showHelp = false
     @State private var showLottiePicker = false
     @State private var isGalleryMode = false  // TikTok-style gallery view
@@ -130,8 +133,8 @@ public struct AnimatedPostEditorView: View {
                 )
             }
         }
-        .sheet(isPresented: $showMediaTypePicker) {
-            mediaTypePickerView
+        .onChange(of: selectedPhotoItems) { items in
+            handlePickedMedia(items)
         }
         .sheet(isPresented: $showHelp) {
             helpView
@@ -180,9 +183,11 @@ public struct AnimatedPostEditorView: View {
             }
 
             // Action button
-            Button(action: {
-                showMediaTypePicker = true
-            }) {
+            PhotosPicker(
+                selection: pickerSelection(for: nil),
+                maxSelectionCount: 10,
+                matching: .any(of: [.images, .videos])
+            ) {
                 Label("Add Media", systemImage: "photo.on.rectangle")
                     .font(.headline)
                     .foregroundColor(.white)
@@ -286,6 +291,20 @@ public struct AnimatedPostEditorView: View {
                 isPlaying: viewModel.isPlaying,
                 localImage: viewModel.localImages[block.id]
             )
+            .overlay(alignment: .topTrailing) {
+                PhotosPicker(
+                    selection: pickerSelection(for: block.id),
+                    matching: .any(of: [.images, .videos])
+                ) {
+                    Image(systemName: "arrow.triangle.2.circlepath.camera")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(6)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                }
+                .padding(8)
+            }
 
             // Layer controls with glass cards
             if let layers = block.textLayers, !layers.isEmpty {
@@ -434,20 +453,20 @@ public struct AnimatedPostEditorView: View {
 
             Spacer()
 
-            // Add media button (disabled for single-block editing)
-            Button(action: {
-                showMediaTypePicker = true
-            }) {
+            // Add media button
+            PhotosPicker(
+                selection: pickerSelection(for: nil),
+                maxSelectionCount: 10,
+                matching: .any(of: [.images, .videos])
+            ) {
                 VStack(spacing: 4) {
                     Image(systemName: "photo.badge.plus")
                         .font(.title2)
-                        .foregroundStyle(.secondary.opacity(0.5))
+                        .foregroundStyle(.blue.gradient)
                     Text("Media")
                         .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
             }
-            .disabled(true)  // Multi-block editing not yet supported
 
             // Add text button
             Button(action: {
@@ -500,33 +519,53 @@ public struct AnimatedPostEditorView: View {
 
     // MARK: - Sheet Views
 
-    private var mediaTypePickerView: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
+    // MARK: - PhotosPicker Helpers
 
-                Image(systemName: "photo.stack")
-                    .font(.system(size: 60))
-                    .foregroundColor(.secondary)
-
-                Text("Gallery Mode Coming Soon")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
-                Text("Multiple media blocks can be added in a future version. For now, edit the current media.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-
-                Spacer()
+    private func pickerSelection(for target: UUID?) -> Binding<[PhotosPickerItem]> {
+        Binding(
+            get: { selectedPhotoItems },
+            set: { items in
+                mediaPickerTarget = target
+                selectedPhotoItems = items
             }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        showMediaTypePicker = false
-                    }
+        )
+    }
+
+    private func handlePickedMedia(_ items: [PhotosPickerItem]) {
+        guard !items.isEmpty else { return }
+
+        Task {
+            if let target = mediaPickerTarget {
+                // Replacing a single block's media — use first item only
+                if let item = items.first {
+                    await loadMediaItem(item, replacingBlock: target)
                 }
+            } else {
+                // Adding new blocks — process all selected items
+                for item in items {
+                    await loadMediaItem(item, replacingBlock: nil)
+                }
+            }
+
+            selectedPhotoItems = []
+            mediaPickerTarget = nil
+        }
+    }
+
+    private func loadMediaItem(_ item: PhotosPickerItem, replacingBlock target: UUID?) async {
+        if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }),
+           let movie = try? await item.loadTransferable(type: TransferableMovie.self) {
+            if let target {
+                viewModel.replaceBlockVideo(target, localURL: movie.url)
+            } else {
+                viewModel.addLocalVideoBlock(localURL: movie.url)
+            }
+        } else if let data = try? await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) {
+            if let target {
+                viewModel.replaceBlockImage(target, image: image)
+            } else {
+                viewModel.addLocalImageBlock(image: image)
             }
         }
     }
@@ -658,6 +697,24 @@ public struct AnimatedPostEditorView: View {
 
         let content = viewModel.richContent
         onComplete(content)
+    }
+}
+
+// MARK: - Transferable Movie
+
+private struct TransferableMovie: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let ext = received.file.pathExtension.isEmpty ? "mov" : received.file.pathExtension
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("\(UUID().uuidString).\(ext)")
+            try FileManager.default.copyItem(at: received.file, to: tempURL)
+            return Self(url: tempURL)
+        }
     }
 }
 

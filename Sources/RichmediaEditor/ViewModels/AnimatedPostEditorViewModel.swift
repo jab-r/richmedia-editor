@@ -123,6 +123,24 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         selectedLayerId = nil
     }
 
+    /// Replace block's media with a new local image, preserving text layers
+    public func replaceBlockImage(_ blockId: UUID, image: UIImage) {
+        guard let blockIndex = blocks.firstIndex(where: { $0.id == blockId }) else { return }
+        blocks[blockIndex].image = "local"
+        blocks[blockIndex].video = nil
+        blocks[blockIndex].url = nil
+        localImages[blockId] = image
+    }
+
+    /// Replace block's media with a new local video, preserving text layers
+    public func replaceBlockVideo(_ blockId: UUID, localURL: URL) {
+        guard let blockIndex = blocks.firstIndex(where: { $0.id == blockId }) else { return }
+        blocks[blockIndex].image = nil
+        blocks[blockIndex].video = "local"
+        blocks[blockIndex].url = localURL.absoluteString
+        localImages.removeValue(forKey: blockId)
+    }
+
     // MARK: - Layer Management
 
     public func addTextLayer(to blockId: UUID? = nil) {
@@ -265,9 +283,9 @@ public class AnimatedPostEditorViewModel: ObservableObject {
             return false
         }
 
-        // Each block must have valid media reference
+        // Each block must have valid media reference (URL or local image)
         for block in blocks {
-            if block.url == nil {
+            if block.url == nil && localImages[block.id] == nil {
                 return false
             }
         }
