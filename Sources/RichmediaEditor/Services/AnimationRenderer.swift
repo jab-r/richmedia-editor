@@ -2,7 +2,7 @@
 // AnimationRenderer.swift
 // RichmediaEditor
 //
-// Executes animations on text layers using SwiftUI animations
+// Executes animations on text layers using SwiftUI animations + CAKeyframeAnimation
 //
 
 import SwiftUI
@@ -233,10 +233,19 @@ private struct AnimatedTextLayerView<Content: View>: View {
                     }
                 }
 
-        // MARK: - Path-based (Phase 4 - placeholder)
+        // MARK: - Path-based Animations
         case .motionPath, .curvePath:
-            // TODO: Implement in Phase 4
-            content
+            if let path = layer.path {
+                PathAnimatedView(
+                    content: content,
+                    path: path,
+                    duration: animation.duration,
+                    delay: animation.delay
+                )
+            } else {
+                // Fallback if no path defined
+                content
+            }
         }
     }
 

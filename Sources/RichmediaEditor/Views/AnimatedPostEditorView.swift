@@ -2,7 +2,7 @@
 // AnimatedPostEditorView.swift
 // RichmediaEditor
 //
-// Main public API - Animated post editor with modern glass UI
+// Main public API - Complete animated post editor with glass UI
 //
 
 import SwiftUI
@@ -18,8 +18,10 @@ public struct AnimatedPostEditorView: View {
 
     @StateObject private var viewModel = AnimatedPostEditorViewModel()
     @State private var showTextEditor = false
-    @State private var showAnimationPicker = false
+    @State private var showPathDrawing = false
     @State private var editingLayer: TextLayer?
+    @State private var showMediaTypePicker = false
+    @State private var showHelp = false
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
@@ -106,6 +108,32 @@ public struct AnimatedPostEditorView: View {
                 )
             }
         }
+        .sheet(isPresented: $showPathDrawing) {
+            if let layer = editingLayer,
+               let blockId = viewModel.selectedBlockId {
+                PathDrawingView(
+                    path: Binding(
+                        get: { layer.path },
+                        set: { _ in }
+                    ),
+                    onComplete: { path in
+                        viewModel.updateLayer(layer.id, in: blockId) { layer in
+                            layer.path = path
+                            // Set motion path animation if not already set
+                            if layer.animation == nil {
+                                layer.animation = TextAnimation(preset: .motionPath, duration: 2.0)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+        .sheet(isPresented: $showMediaTypePicker) {
+            mediaTypePickerView
+        }
+        .sheet(isPresented: $showHelp) {
+            helpView
+        }
         .onAppear {
             setupInitialMedia()
         }
@@ -143,7 +171,7 @@ public struct AnimatedPostEditorView: View {
 
             // Action button
             Button(action: {
-                // TODO: Show media picker
+                showMediaTypePicker = true
             }) {
                 Label("Add Media", systemImage: "photo.on.rectangle")
                     .font(.headline)
@@ -231,10 +259,17 @@ public struct AnimatedPostEditorView: View {
     @ViewBuilder
     private func layerControlsView(layers: [TextLayer], blockId: UUID) -> some View {
         VStack(spacing: 8) {
-            Text("Layers")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack {
+                Text("Layers")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Text("\(layers.count)/10")
+                    .font(.caption2)
+                    .foregroundColor(.tertiary)
+            }
 
             ForEach(layers) { layer in
                 HStack(spacing: 12) {
@@ -253,14 +288,38 @@ public struct AnimatedPostEditorView: View {
                             .font(.subheadline)
                             .lineLimit(1)
 
-                        if let animation = layer.animation {
-                            Text(animation.preset.displayName)
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            if let animation = layer.animation {
+                                Image(systemName: "sparkles")
+                                    .font(.caption2)
+                                Text(animation.preset.displayName)
+                                    .font(.caption2)
+                            }
+
+                            if layer.path != nil {
+                                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                                    .font(.caption2)
+                                Text("Path")
+                                    .font(.caption2)
+                            }
                         }
+                        .foregroundColor(.secondary)
                     }
 
                     Spacer()
+
+                    // Path button (for motion path animations)
+                    if layer.animation?.preset == .motionPath || layer.animation?.preset == .curvePath {
+                        Button(action: {
+                            editingLayer = layer
+                            viewModel.selectLayer(layer.id, in: blockId)
+                            showPathDrawing = true
+                        }) {
+                            Image(systemName: "scribble")
+                                .foregroundStyle(.purple.gradient)
+                                .font(.title3)
+                        }
+                    }
 
                     // Edit button
                     Button(action: {
@@ -321,7 +380,7 @@ public struct AnimatedPostEditorView: View {
 
             // Add media button
             Button(action: {
-                // TODO: Show media picker
+                showMediaTypePicker = true
             }) {
                 VStack(spacing: 4) {
                     Image(systemName: "photo.badge.plus")
@@ -350,9 +409,9 @@ public struct AnimatedPostEditorView: View {
 
             Spacer()
 
-            // Info button
+            // Help button
             Button(action: {
-                // TODO: Show help/tips
+                showHelp = true
             }) {
                 VStack(spacing: 4) {
                     Image(systemName: "info.circle")
@@ -367,18 +426,169 @@ public struct AnimatedPostEditorView: View {
         .padding(.vertical, 12)
     }
 
+    // MARK: - Sheet Views
+
+    private var mediaTypePickerView: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Text("Add Media")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top, 20)
+
+                Text("Loxation will handle media selection. This is a placeholder for the integration point.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                // Placeholder buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        // Placeholder: Loxation provides PHMediaPicker
+                        // For now, create demo block
+                        viewModel.addImageBlock(url: "https://picsum.photos/400/711", mediaId: "demo")
+                        showMediaTypePicker = false
+                    }) {
+                        Label("Photo Library", systemImage: "photo.on.rectangle")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(12)
+                    }
+
+                    Button(action: {
+                        // Placeholder: Loxation provides camera
+                        viewModel.addVideoBlock(url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", mediaId: "demo")
+                        showMediaTypePicker = false
+                    }) {
+                        Label("Camera", systemImage: "camera")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(12)
+                    }
+                }
+                .padding()
+
+                Spacer()
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showMediaTypePicker = false
+                    }
+                }
+            }
+        }
+    }
+
+    private var helpView: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    helpSection(
+                        icon: "hand.draw",
+                        title: "Gestures",
+                        tips: [
+                            "Drag text layers to reposition",
+                            "Pinch to scale text size",
+                            "Rotate with two fingers",
+                            "Tap to select a layer"
+                        ]
+                    )
+
+                    helpSection(
+                        icon: "sparkles",
+                        title: "Animations",
+                        tips: [
+                            "Choose from 15+ presets",
+                            "Adjust timing and delay",
+                            "Loop animations continuously",
+                            "Draw custom motion paths"
+                        ]
+                    )
+
+                    helpSection(
+                        icon: "paintbrush",
+                        title: "Styling",
+                        tips: [
+                            "Select fonts and colors",
+                            "Add shadows and outlines",
+                            "Bold, italic, underline",
+                            "Align text left/center/right"
+                        ]
+                    )
+
+                    helpSection(
+                        icon: "video",
+                        title: "Video Support",
+                        tips: [
+                            "Add text to video backgrounds",
+                            "Sync animations with playback",
+                            "Muted during editing",
+                            "Full playback on export"
+                        ]
+                    )
+                }
+                .padding()
+            }
+            .navigationTitle("Help")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        showHelp = false
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func helpSection(icon: String, title: String, tips: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(.blue.gradient)
+                    .frame(width: 40)
+
+                Text(title)
+                    .font(.headline)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(tips, id: \.self) { tip in
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•")
+                            .foregroundColor(.secondary)
+                        Text(tip)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(.leading, 52)
+        }
+        .padding()
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
+    }
+
     // MARK: - Actions
 
     private func setupInitialMedia() {
         guard let media = initialMedia else { return }
 
-        // TODO: Handle initial media input
-        // For now, create a placeholder block
+        // Create block from initial media
         switch media {
         case .image:
+            // Loxation will provide UIImage → we need to get URL after upload
+            // For now, placeholder URL
             viewModel.addImageBlock(url: "placeholder", mediaId: "temp")
-        case .video:
-            viewModel.addVideoBlock(url: "placeholder", mediaId: "temp")
+        case .video(let url):
+            viewModel.addVideoBlock(url: url.absoluteString, mediaId: "temp")
         }
     }
 
