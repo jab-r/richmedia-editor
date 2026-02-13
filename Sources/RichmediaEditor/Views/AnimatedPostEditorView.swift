@@ -322,7 +322,7 @@ public struct AnimatedPostEditorView: View {
 
                 Text("\(layers.count)/10")
                     .font(.caption2)
-                    .foregroundColor(.tertiary)
+                    .foregroundColor(.secondary)
             }
 
             ForEach(layers) { layer in

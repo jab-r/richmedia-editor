@@ -138,7 +138,7 @@ struct PathDrawingView: View {
 
             Text("Or choose a preset below")
                 .font(.caption)
-                .foregroundColor(.tertiary)
+                .foregroundColor(.secondary)
         }
         .padding()
         .background(.ultraThinMaterial)
