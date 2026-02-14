@@ -1,6 +1,6 @@
 # RichmediaEditor
 
-A Swift Package (iOS 16+ / macOS 13+) for creating and viewing richmedia posts with an Instagram/TikTok-style editor. Users compose rich posts by adding text layers, animations, and Lottie overlays on top of photos and videos, with pinch-to-zoom/pan media positioning, then export as JSON.
+A Swift Package (iOS 16+ / macOS 13+) for creating and viewing richmedia posts with an Modern-style editor. Users compose rich posts by adding text layers, animations, and Lottie overlays on top of photos and videos, with pinch-to-zoom/pan media positioning, then export as JSON.
 
 ## Features
 
@@ -11,7 +11,7 @@ A Swift Package (iOS 16+ / macOS 13+) for creating and viewing richmedia posts w
 - **Path animations**: Draw custom motion paths for text
 - **Lottie overlays**: Add animated Lottie stickers on top of media
 - **Gallery/carousel support**: Multi-block posts with swipeable pages
-- **Gallery player**: Read-only TikTok-style viewer for displaying animated posts
+- **Gallery player**: Read-only viewer for displaying animated posts
 - **Local-first editing**: Edit with local UIImages before upload
 - **Cross-platform JSON format**: Output compatible with iOS, Android, and web renderers
 - **HTML export**: Server-side rendering at [community.loxation.com](https://community.loxation.com)
