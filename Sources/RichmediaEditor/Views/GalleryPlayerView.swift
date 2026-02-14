@@ -2,28 +2,30 @@
 // GalleryPlayerView.swift
 // RichmediaEditor
 //
-// TikTok-style gallery player for viewing animated posts
+// TikTok-style gallery player for viewing animated posts (read-only)
 //
 
 import SwiftUI
+import AVKit
 
 #if canImport(UIKit)
 
 /// Full-screen gallery player for viewing animated posts (TikTok style)
 public struct GalleryPlayerView: View {
     let content: RichPostContent
+    var localImages: [UUID: UIImage] = [:]
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentPage = 0
     @State private var isPlaying = true
 
-    public init(content: RichPostContent) {
+    public init(content: RichPostContent, localImages: [UUID: UIImage] = [:]) {
         self.content = content
+        self.localImages = localImages
     }
 
     public var body: some View {
         ZStack {
-            // Black background
             Color.black.ignoresSafeArea()
 
             // Gallery
@@ -82,7 +84,7 @@ public struct GalleryPlayerView: View {
 
                 Spacer()
 
-                // Bottom info
+                // Bottom caption
                 if content.blocks.indices.contains(currentPage) {
                     let block = content.blocks[currentPage]
                     if let caption = block.caption, !caption.isEmpty {
@@ -113,28 +115,15 @@ public struct GalleryPlayerView: View {
     private func pageView(for block: RichPostBlock) -> some View {
         GeometryReader { geometry in
             ZStack {
-                // Background media
-                if let urlString = block.url, let url = URL(string: urlString) {
-                    if block.video != nil {
-                        // Video background
-                        Color.black
-                            .overlay(
-                                Text("Video: \(urlString)")
-                                    .foregroundColor(.white)
-                            )
-                    } else {
-                        // Image background
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                        } placeholder: {
-                            ProgressView()
-                        }
-                    }
-                }
+                // Background media with transform
+                mediaView(for: block)
+                    .scaleEffect(block.mediaTransform?.scale ?? 1.0)
+                    .offset(CGSize(
+                        width: block.mediaTransform?.offsetX ?? 0,
+                        height: block.mediaTransform?.offsetY ?? 0
+                    ))
 
-                // Lottie overlay (if present)
+                // Lottie overlay
                 if let lottie = block.lottieOverlay {
                     LottieOverlayView(animation: lottie, play: isPlaying)
                 }
@@ -146,6 +135,29 @@ public struct GalleryPlayerView: View {
                     }
                 }
             }
+            .clipped()
+        }
+        .aspectRatio(9/16, contentMode: .fit)
+    }
+
+    @ViewBuilder
+    private func mediaView(for block: RichPostBlock) -> some View {
+        if let uiImage = localImages[block.id] {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+        } else if block.video != nil, let urlString = block.url, let url = URL(string: urlString) {
+            VideoPlayer(player: AVPlayer(url: url))
+        } else if block.image != nil, let urlString = block.url, let url = URL(string: urlString) {
+            AsyncImage(url: url) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                ProgressView()
+            }
+        } else {
+            Color.black
         }
     }
 
@@ -156,6 +168,8 @@ public struct GalleryPlayerView: View {
             .foregroundColor(Color(hex: layer.style.color))
             .bold(layer.style.bold)
             .italic(layer.style.italic)
+            .underline(layer.style.underline)
+            .multilineTextAlignment(alignmentForStyle(layer.style))
             .shadow(
                 color: shadowColor(for: layer),
                 radius: layer.style.shadow?.radius ?? 0,
@@ -163,24 +177,19 @@ public struct GalleryPlayerView: View {
                 y: layer.style.shadow?.offset.height ?? 0
             )
 
-        // Apply animation if playing
-        if isPlaying {
-            AnimationRenderer.animated(layer: layer, content: baseText)
-                .position(
-                    x: layer.position.x * canvasSize.width,
-                    y: layer.position.y * canvasSize.height
-                )
-                .scaleEffect(layer.position.scale)
-                .rotationEffect(.degrees(layer.position.rotation))
-        } else {
-            baseText
-                .position(
-                    x: layer.position.x * canvasSize.width,
-                    y: layer.position.y * canvasSize.height
-                )
-                .scaleEffect(layer.position.scale)
-                .rotationEffect(.degrees(layer.position.rotation))
+        Group {
+            if isPlaying {
+                AnimationRenderer.animated(layer: layer, content: baseText)
+            } else {
+                baseText
+            }
         }
+        .position(
+            x: layer.position.x * canvasSize.width,
+            y: layer.position.y * canvasSize.height
+        )
+        .scaleEffect(layer.position.scale)
+        .rotationEffect(.degrees(layer.position.rotation))
     }
 
     // MARK: - Helpers
@@ -193,6 +202,14 @@ public struct GalleryPlayerView: View {
         case "Courier": return .custom("Courier", size: size)
         case "Times New Roman": return .custom("Times New Roman", size: size)
         default: return .system(size: size)
+        }
+    }
+
+    private func alignmentForStyle(_ style: TextLayerStyle) -> SwiftUI.TextAlignment {
+        switch style.align {
+        case .left: return .leading
+        case .center: return .center
+        case .right: return .trailing
         }
     }
 
