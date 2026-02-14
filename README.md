@@ -1,34 +1,32 @@
 # RichmediaEditor
 
-A Swift Package for creating Instagram/TikTok-style animated posts with text overlays on photos and videos.
+A Swift Package (iOS 16+ / macOS 13+) for creating and viewing richmedia posts with an Instagram/TikTok-style editor. Users compose rich posts by adding text layers, animations, and Lottie overlays on top of photos and videos, with pinch-to-zoom/pan media positioning, then export as JSON.
 
 ## Features
 
-- **Animated Text Overlays**: Add animated text layers to photos and videos
-- **Animation Presets**: Entrance, exit, looping, and path-based animations
-- **Rich Text Styling**: Fonts, colors, shadows, outlines, and alignment
-- **Path Animations**: Text motion along curved paths
-- **HTML Export**: Generate standalone HTML/CSS/JS for web viewing
-- **JSON Format**: Compatible with Loxation's richmedia post format
+- **Canvas-first editing**: Tap text on canvas to select, tap again to edit inline
+- **Media transform**: Pinch-to-zoom (1x-5x) and drag-to-pan background media
+- **18 animation presets**: Entrance, exit, looping, and path-based animations
+- **Rich text styling**: Fonts, colors, shadows, outlines, bold/italic/underline, alignment
+- **Path animations**: Draw custom motion paths for text
+- **Lottie overlays**: Add animated Lottie stickers on top of media
+- **Gallery/carousel support**: Multi-block posts with swipeable pages
+- **Gallery player**: Read-only TikTok-style viewer for displaying animated posts
+- **Local-first editing**: Edit with local UIImages before upload
+- **Cross-platform JSON format**: Output compatible with iOS, Android, and web renderers
+- **HTML export**: Server-side rendering at [community.loxation.com](https://community.loxation.com)
 
 ## Requirements
 
 - iOS 16.0+ / macOS 13.0+
 - Swift 5.9+
-- Xcode 15.0+
+- Xcode 15+
 
 ## Installation
 
 ### Swift Package Manager
 
-Add this package to your Xcode project:
-
-1. File → Add Package Dependencies
-2. Enter the repository URL
-3. Select version/branch
-4. Add to your target
-
-Or add to your `Package.swift`:
+Add to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -36,9 +34,11 @@ dependencies: [
 ]
 ```
 
+Or in Xcode: File > Add Package Dependencies > enter the repository URL.
+
 ## Usage
 
-### Basic Integration
+### Editor
 
 ```swift
 import SwiftUI
@@ -48,15 +48,15 @@ struct ContentView: View {
     @State private var showEditor = false
 
     var body: some View {
-        Button("Create Animated Post") {
+        Button("Create Post") {
             showEditor = true
         }
         .sheet(isPresented: $showEditor) {
             AnimatedPostEditorView(
-                initialMedia: nil,
-                onComplete: { richContent in
-                    // Handle completed post
-                    print("Post created: \(richContent.blocks.count) blocks")
+                initialMedia: .image(myUIImage, url: nil, mediaId: nil),
+                onComplete: { richContent, localImages in
+                    // richContent: RichPostContent JSON
+                    // localImages: [UUID: UIImage] for blocks not yet uploaded
                     showEditor = false
                 },
                 onCancel: {
@@ -68,194 +68,51 @@ struct ContentView: View {
 }
 ```
 
-### With Initial Media
+### Gallery Player
 
 ```swift
-// Start with an image
-let image = UIImage(named: "photo")!
-AnimatedPostEditorView(
-    initialMedia: .image(image),
-    onComplete: { richContent in
-        // Upload and post
-    },
-    onCancel: {
-        // Dismiss
-    }
-)
-
-// Start with a video
-let videoURL = URL(fileURLWithPath: "/path/to/video.mp4")
-AnimatedPostEditorView(
-    initialMedia: .video(videoURL),
-    onComplete: { richContent in
-        // Upload and post
-    },
-    onCancel: {
-        // Dismiss
-    }
+GalleryPlayerView(
+    content: richPostContent,
+    localImages: localImages
 )
 ```
 
 ### Programmatic Post Creation
 
 ```swift
-import RichmediaEditor
-
-// Create a post programmatically
 var content = RichPostContent(version: 1, blocks: [])
 
-// Add image block with text layers
-let imageBlock = RichPostBlock(
+let block = RichPostBlock(
     image: "photo123",
     url: "https://cdn.example.com/photo123.jpg",
     textLayers: [
         TextLayer(
             text: "Hello World!",
             position: LayerPosition(x: 0.5, y: 0.3),
-            style: TextLayerStyle(
-                font: "Helvetica",
-                size: 48,
-                color: "#FFFFFF",
-                bold: true
-            ),
-            animation: TextAnimation(
-                preset: .fadeSlideUp,
-                duration: 0.8
-            )
+            style: TextLayerStyle(font: "Helvetica", size: 48, color: "#FFFFFF", bold: true),
+            animation: TextAnimation(preset: .fadeSlideUp, duration: 0.8)
         )
-    ]
+    ],
+    mediaTransform: MediaTransform(scale: 1.5, offsetX: 0, offsetY: -20)
 )
 
-content.blocks.append(imageBlock)
+content.blocks.append(block)
 
-// Convert to JSON string
-if let jsonString = content.toJSONString() {
-    print(jsonString)
+if let json = content.toJSONString() {
+    print(json)
 }
 ```
 
-## Data Models
-
-### TextLayer
-
-A text overlay layer with position, style, and animation:
-
-```swift
-let layer = TextLayer(
-    text: "My Text",
-    position: LayerPosition(x: 0.5, y: 0.5, rotation: 0, scale: 1.0),
-    style: TextLayerStyle(
-        font: "Helvetica",
-        size: 32,
-        color: "#FFFFFF",
-        bold: true
-    ),
-    animation: TextAnimation(preset: .fadeIn, duration: 0.8)
-)
-```
-
-### Animation Presets
-
-Available animation categories:
+## Animation Presets
 
 - **Entrance**: `fadeIn`, `fadeSlideUp`, `zoomIn`, `bounceIn`, etc.
 - **Exit**: `fadeOut`, `slideOutUp`, `zoomOut`
 - **Loop**: `pulse`, `bounce`, `float`, `wiggle`, `rotate`
 - **Path**: `motionPath`, `curvePath`
 
-```swift
-let animation = TextAnimation(
-    preset: .pulse,
-    delay: 0.5,
-    duration: 1.0,
-    loop: true,
-    loopDelay: 0.2
-)
-```
-
-### Path Animations
-
-Create custom motion paths:
-
-```swift
-let path = AnimationPath(
-    type: .bezier,
-    points: [
-        CGPoint(x: 0.1, y: 0.1),
-        CGPoint(x: 0.5, y: 0.9),
-        CGPoint(x: 0.9, y: 0.1)
-    ],
-    curveType: .quadratic
-)
-
-let layer = TextLayer(
-    text: "Follow Path",
-    animation: TextAnimation(preset: .motionPath, duration: 2.0),
-    path: path
-)
-```
-
-## JSON Format
-
-Output format compatible with Loxation richmedia posts:
-
-```json
-{
-  "version": 1,
-  "blocks": [
-    {
-      "image": "photo123",
-      "url": "https://cdn.example.com/photo123.jpg",
-      "textLayers": [
-        {
-          "id": "...",
-          "text": "Hello World!",
-          "position": {"x": 0.5, "y": 0.3, "rotation": 0, "scale": 1.0},
-          "style": {
-            "font": "Helvetica",
-            "size": 48,
-            "color": "#FFFFFF",
-            "bold": true
-          },
-          "animation": {
-            "preset": "fadeSlideUp",
-            "delay": 0,
-            "duration": 0.8,
-            "loop": false
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Development Status
-
-### Phase 1: Foundation ✅ (Current)
-- ✅ Data models
-- ✅ Basic editor view
-- ✅ ViewModel state management
-- 🚧 Media canvas
-- 🚧 Text layer gestures
-- ⏳ Style editor
-
-### Phase 2-6: Upcoming
-- Animation presets
-- Video support
-- Path animations
-- HTML export
-- Advanced features
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the complete roadmap.
-
-## Contributing
-
-Contributions are welcome! Please see the architecture document for design decisions and implementation guidelines.
-
 ## License
 
-[Your License Here]
+[GPL v3](LICENSE)
 
 ## Credits
 
