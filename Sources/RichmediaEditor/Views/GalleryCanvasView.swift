@@ -16,7 +16,13 @@ struct GalleryCanvasView: View {
     @Binding var selectedLayerId: UUID?
     let onLayerTap: (UUID, UUID) -> Void  // blockId, layerId
     let onLayerUpdate: (UUID, UUID, LayerPosition) -> Void  // blockId, layerId, position
-    var localImages: [UUID: UIImage] = [:]  // Local images not yet uploaded
+    var isPlaying: Bool = false
+    var isEditing: Bool = true
+    var isTextEditingLayerId: UUID? = nil
+    var onTextChange: ((UUID, String) -> Void)? = nil  // layerId, newText
+    var onBackgroundTap: (() -> Void)? = nil
+    var onMediaTransformUpdate: ((UUID, MediaTransform) -> Void)? = nil  // blockId, transform
+    var localImages: [UUID: UIImage] = [:]
 
     @State private var currentPage = 0
 
@@ -35,6 +41,14 @@ struct GalleryCanvasView: View {
                         onLayerUpdate: { layerId, position in
                             onLayerUpdate(block.id, layerId, position)
                         },
+                        isPlaying: isPlaying,
+                        isEditing: isEditing,
+                        isTextEditingLayerId: isTextEditingLayerId,
+                        onTextChange: onTextChange,
+                        onBackgroundTap: onBackgroundTap,
+                        onMediaTransformUpdate: { transform in
+                            onMediaTransformUpdate?(block.id, transform)
+                        },
                         localImage: localImages[block.id]
                     )
                     .tag(index)
@@ -42,6 +56,12 @@ struct GalleryCanvasView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .always))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .onAppear {
+                // Sync selected block with initial page
+                if blocks.indices.contains(currentPage) {
+                    selectedBlockId = blocks[currentPage].id
+                }
+            }
             .onChange(of: currentPage) { newPage in
                 // Update selected block when page changes
                 if blocks.indices.contains(newPage) {

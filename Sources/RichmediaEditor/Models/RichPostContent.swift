@@ -58,6 +58,9 @@ public struct RichPostBlock: Codable, Identifiable, Equatable {
     // Lottie overlay (plays on top of media)
     public var lottieOverlay: LottieAnimation?
 
+    // Media framing (zoom/pan within the canvas)
+    public var mediaTransform: MediaTransform?
+
     public init(
         id: UUID = UUID(),
         image: String? = nil,
@@ -66,7 +69,8 @@ public struct RichPostBlock: Codable, Identifiable, Equatable {
         caption: String? = nil,
         textLayers: [TextLayer]? = nil,
         animationVersion: Int? = nil,
-        lottieOverlay: LottieAnimation? = nil
+        lottieOverlay: LottieAnimation? = nil,
+        mediaTransform: MediaTransform? = nil
     ) {
         self.id = id
         self.image = image
@@ -76,6 +80,7 @@ public struct RichPostBlock: Codable, Identifiable, Equatable {
         self.textLayers = textLayers
         self.animationVersion = animationVersion
         self.lottieOverlay = lottieOverlay
+        self.mediaTransform = mediaTransform
     }
 
     /// Block type for rendering logic

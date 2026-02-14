@@ -18,6 +18,7 @@ public class AnimatedPostEditorViewModel: ObservableObject {
     @Published public var showingStyleEditor = false
     @Published public var showingAnimationPicker = false
     @Published public var isPlaying = false
+    @Published public var editingLayerId: UUID?  // Layer currently being inline-edited
 
     // MARK: - Local Media Storage
 
@@ -149,9 +150,12 @@ public class AnimatedPostEditorViewModel: ObservableObject {
             return
         }
 
+        let existingCount = blocks[blockIndex].textLayers?.count ?? 0
+        let yPosition = min(0.3 + Double(existingCount) * 0.08, 0.7)
+
         let newLayer = TextLayer(
             text: "Text",
-            position: LayerPosition(x: 0.5, y: 0.5),
+            position: LayerPosition(x: 0.5, y: yPosition),
             style: TextLayerStyle()
         )
 
@@ -192,6 +196,14 @@ public class AnimatedPostEditorViewModel: ObservableObject {
             selectedBlockId = blockId
         }
         selectedLayerId = id
+        if id == nil {
+            editingLayerId = nil
+        }
+    }
+
+    public func deselectAll() {
+        selectedLayerId = nil
+        editingLayerId = nil
     }
 
     public func toggleLayerVisibility(_ layerId: UUID, in blockId: UUID) {
@@ -257,6 +269,15 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         updateLayer(layerId, in: blockId) { layer in
             layer.path = path
         }
+    }
+
+    // MARK: - Media Transform
+
+    public func updateMediaTransform(_ transform: MediaTransform, for blockId: UUID) {
+        guard let blockIndex = blocks.firstIndex(where: { $0.id == blockId }) else {
+            return
+        }
+        blocks[blockIndex].mediaTransform = transform
     }
 
     // MARK: - Lottie Management
