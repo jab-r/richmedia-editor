@@ -8,6 +8,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import Combine
 
 #if canImport(UIKit)
 
@@ -28,6 +29,9 @@ public struct AnimatedPostEditorView: View {
     @State private var mediaPickerTarget: UUID?
     @State private var showHelp = false
     @State private var showLottiePicker = false
+    @State private var keyboardHeight: CGFloat = 0
+    @State private var floatingText: String = ""
+    @FocusState private var floatingFieldFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
@@ -96,7 +100,17 @@ public struct AnimatedPostEditorView: View {
                     editorContentView
                 }
             }
+
+            // Floating text input above keyboard
+            if viewModel.editingLayerId != nil {
+                VStack {
+                    Spacer()
+                    floatingTextInput
+                }
+                .padding(.bottom, keyboardHeight)
+            }
         }
+        .ignoresSafeArea(.keyboard)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -193,6 +207,20 @@ public struct AnimatedPostEditorView: View {
         .onAppear {
             setupInitialContent()
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+            if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+               let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double {
+                withAnimation(.easeOut(duration: duration)) {
+                    keyboardHeight = frame.height
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { notification in
+            let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+            withAnimation(.easeOut(duration: duration)) {
+                keyboardHeight = 0
+            }
+        }
         } // NavigationStack
     }
 
@@ -286,7 +314,11 @@ public struct AnimatedPostEditorView: View {
                 }
             },
             onBackgroundTap: {
-                viewModel.deselectAll()
+                if viewModel.editingLayerId != nil {
+                    finishEditing()
+                } else {
+                    viewModel.deselectAll()
+                }
             },
             onMediaTransformUpdate: { blockId, transform in
                 viewModel.updateMediaTransform(transform, for: blockId)
@@ -338,6 +370,11 @@ public struct AnimatedPostEditorView: View {
             Button(action: {
                 if let blockId = viewModel.selectedBlockId ?? viewModel.blocks.first?.id {
                     viewModel.addTextLayer(to: blockId)
+                    if let newLayerId = viewModel.selectedLayerId {
+                        viewModel.editingLayerId = newLayerId
+                        floatingText = "Text"
+                        floatingFieldFocused = true
+                    }
                 }
             }) {
                 VStack(spacing: 4) {
@@ -383,12 +420,59 @@ public struct AnimatedPostEditorView: View {
         .padding(.vertical, 12)
     }
 
+    // MARK: - Floating Text Input
+
+    private var floatingTextInput: some View {
+        HStack(spacing: 12) {
+            TextField("Enter text", text: $floatingText, axis: .vertical)
+                .textFieldStyle(.plain)
+                .focused($floatingFieldFocused)
+                .onChange(of: floatingText) { newValue in
+                    guard let blockId = viewModel.selectedBlockId,
+                          let layerId = viewModel.editingLayerId else { return }
+                    viewModel.updateLayer(layerId, in: blockId) { layer in
+                        layer.text = newValue
+                    }
+                }
+
+            Button("Done") {
+                finishEditing()
+            }
+            .fontWeight(.semibold)
+            .foregroundColor(.blue)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+    }
+
+    private func finishEditing() {
+        floatingFieldFocused = false
+        let trimmed = floatingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty,
+           let blockId = viewModel.selectedBlockId,
+           let layerId = viewModel.editingLayerId {
+            viewModel.deleteLayer(layerId, from: blockId)
+        }
+        viewModel.editingLayerId = nil
+    }
+
     // MARK: - Tap / Long Press Handling
 
     private func handleLayerTap(layerId: UUID, blockId: UUID) {
-        // Single tap — select and immediately enter inline editing
+        // Single tap — select and enter floating text editing
         viewModel.selectLayer(layerId, in: blockId)
         viewModel.editingLayerId = layerId
+
+        // Initialize floating text from the layer's current text
+        if let block = viewModel.blocks.first(where: { $0.id == blockId }),
+           let layer = block.textLayers?.first(where: { $0.id == layerId }) {
+            floatingText = layer.text
+        }
+        floatingFieldFocused = true
     }
 
     private func handleLayerLongPress(layerId: UUID, blockId: UUID) {
@@ -569,6 +653,11 @@ public struct AnimatedPostEditorView: View {
                     viewModel.addLocalVideoBlock(localURL: videoUrl)
                 }
             }
+        }
+
+        // Select the first block so the visible page matches selectedBlockId
+        if !initialMediaItems.isEmpty, let firstBlock = viewModel.blocks.first {
+            viewModel.selectedBlockId = firstBlock.id
         }
 
         // Case 3: Add initial text

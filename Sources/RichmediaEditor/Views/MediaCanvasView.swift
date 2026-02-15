@@ -278,8 +278,6 @@ struct TextLayerOverlay: View {
     @State private var currentPosition: CGPoint
     @State private var currentScale: CGFloat
     @State private var currentRotation: Angle
-    @State private var editableText: String
-    @FocusState private var isFieldFocused: Bool
 
     init(
         layer: TextLayer,
@@ -310,7 +308,6 @@ struct TextLayerOverlay: View {
         ))
         _currentScale = State(initialValue: layer.position.scale)
         _currentRotation = State(initialValue: Angle(degrees: layer.position.rotation))
-        _editableText = State(initialValue: layer.text)
     }
 
     var body: some View {
@@ -337,59 +334,23 @@ struct TextLayerOverlay: View {
                     .position(currentPosition)
             }
         }
-        .onChange(of: isTextEditing) { editing in
-            if editing {
-                editableText = layer.text
-                isFieldFocused = true
-            } else {
-                isFieldFocused = false
-                // Delete layer if text is empty when editing ends
-                if editableText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    onDelete?()
-                }
-            }
-        }
-        .onChange(of: editableText) { newValue in
-            if isTextEditing {
-                onTextChange(newValue)
-            }
-        }
     }
 
     @ViewBuilder
     private var textContent: some View {
-        if isTextEditing {
-            TextField("", text: $editableText, axis: .vertical)
-                .font(fontForStyle(layer.style))
-                .foregroundColor(Color(hex: layer.style.color))
-                .bold(layer.style.bold)
-                .italic(layer.style.italic)
-                .underline(layer.style.underline)
-                .multilineTextAlignment(alignmentForStyle(layer.style))
-                .shadow(
-                    color: shadowColor,
-                    radius: layer.style.shadow?.radius ?? 0,
-                    x: layer.style.shadow?.offset.width ?? 0,
-                    y: layer.style.shadow?.offset.height ?? 0
-                )
-                .focused($isFieldFocused)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: canvasSize.width * 0.8)
-        } else {
-            Text(layer.text)
-                .font(fontForStyle(layer.style))
-                .foregroundColor(Color(hex: layer.style.color))
-                .bold(layer.style.bold)
-                .italic(layer.style.italic)
-                .underline(layer.style.underline)
-                .multilineTextAlignment(alignmentForStyle(layer.style))
-                .shadow(
-                    color: shadowColor,
-                    radius: layer.style.shadow?.radius ?? 0,
-                    x: layer.style.shadow?.offset.width ?? 0,
-                    y: layer.style.shadow?.offset.height ?? 0
-                )
-        }
+        Text(layer.text)
+            .font(fontForStyle(layer.style))
+            .foregroundColor(Color(hex: layer.style.color))
+            .bold(layer.style.bold)
+            .italic(layer.style.italic)
+            .underline(layer.style.underline)
+            .multilineTextAlignment(alignmentForStyle(layer.style))
+            .shadow(
+                color: shadowColor,
+                radius: layer.style.shadow?.radius ?? 0,
+                x: layer.style.shadow?.offset.width ?? 0,
+                y: layer.style.shadow?.offset.height ?? 0
+            )
     }
 
     @ViewBuilder
