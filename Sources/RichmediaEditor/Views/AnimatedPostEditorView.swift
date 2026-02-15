@@ -14,30 +14,64 @@ import UniformTypeIdentifiers
 public struct AnimatedPostEditorView: View {
     // MARK: - Properties
 
-    let initialMedia: MediaInput?
+    let initialMediaItems: [MediaInput]
+    let initialText: String?
+    let existingContent: RichPostContent?
+    let existingLocalImages: [UUID: UIImage]
     let onComplete: (RichPostContent, [UUID: UIImage]) -> Void
     let onCancel: () -> Void
 
     @StateObject private var viewModel = AnimatedPostEditorViewModel()
     @State private var showTextEditor = false
     @State private var showPathDrawing = false
-    @State private var showAnimationPicker = false
-    @State private var editingLayer: TextLayer?
     @State private var selectedPhotoItems: [PhotosPickerItem] = []
     @State private var mediaPickerTarget: UUID?
     @State private var showHelp = false
     @State private var showLottiePicker = false
-    @State private var isGalleryMode = false
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - Initialization
 
+    /// Create editor with a single optional media item (backward-compatible)
     public init(
         initialMedia: MediaInput? = nil,
         onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
         onCancel: @escaping () -> Void
     ) {
-        self.initialMedia = initialMedia
+        self.initialMediaItems = initialMedia.map { [$0] } ?? []
+        self.initialText = nil
+        self.existingContent = nil
+        self.existingLocalImages = [:]
+        self.onComplete = onComplete
+        self.onCancel = onCancel
+    }
+
+    /// Create editor with multiple media items and optional initial text
+    public init(
+        media: [MediaInput],
+        initialText: String? = nil,
+        onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.initialMediaItems = media
+        self.initialText = initialText
+        self.existingContent = nil
+        self.existingLocalImages = [:]
+        self.onComplete = onComplete
+        self.onCancel = onCancel
+    }
+
+    /// Create editor to re-edit existing content
+    public init(
+        content: RichPostContent,
+        localImages: [UUID: UIImage] = [:],
+        onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.initialMediaItems = []
+        self.initialText = nil
+        self.existingContent = content
+        self.existingLocalImages = localImages
         self.onComplete = onComplete
         self.onCancel = onCancel
     }
@@ -94,17 +128,13 @@ public struct AnimatedPostEditorView: View {
                 }
                 .disabled(!viewModel.validate())
             }
-
-            // Keyboard toolbar for inline text editing
-            ToolbarItemGroup(placement: .keyboard) {
-                keyboardStyleToolbar
-            }
         }
         .sheet(isPresented: $showTextEditor) {
-            if let layer = editingLayer,
-               let blockId = viewModel.selectedBlockId,
+            if let blockId = viewModel.selectedBlockId,
+               let layerId = viewModel.selectedLayerId,
                let blockIndex = viewModel.blocks.firstIndex(where: { $0.id == blockId }),
-               let layerIndex = viewModel.blocks[blockIndex].textLayers?.firstIndex(where: { $0.id == layer.id }) {
+               let layerIndex = viewModel.blocks[blockIndex].textLayers?.firstIndex(where: { $0.id == layerId }) {
+                let layer = viewModel.blocks[blockIndex].textLayers![layerIndex]
                 TextLayerEditorSheet(
                     layer: Binding(
                         get: { viewModel.blocks[blockIndex].textLayers?[layerIndex] ?? layer },
@@ -121,44 +151,20 @@ public struct AnimatedPostEditorView: View {
             }
         }
         .sheet(isPresented: $showPathDrawing) {
-            if let layer = editingLayer,
-               let blockId = viewModel.selectedBlockId {
+            if let blockId = viewModel.selectedBlockId,
+               let layerId = viewModel.selectedLayerId,
+               let block = viewModel.blocks.first(where: { $0.id == blockId }),
+               let layer = block.textLayers?.first(where: { $0.id == layerId }) {
                 PathDrawingView(
                     path: Binding(
                         get: { layer.path },
                         set: { _ in }
                     ),
                     onComplete: { path in
-                        viewModel.updateLayer(layer.id, in: blockId) { layer in
+                        viewModel.updateLayer(layerId, in: blockId) { layer in
                             layer.path = path
                             if layer.animation == nil {
                                 layer.animation = TextAnimation(preset: .motionPath, duration: 2.0)
-                            }
-                        }
-                    }
-                )
-            }
-        }
-        .sheet(isPresented: $showAnimationPicker) {
-            if let layer = editingLayer,
-               let blockId = viewModel.selectedBlockId {
-                AnimationPresetPicker(
-                    selectedPreset: Binding(
-                        get: { layer.animation?.preset },
-                        set: { _ in }
-                    ),
-                    onSelect: { preset in
-                        viewModel.updateLayer(layer.id, in: blockId) { layer in
-                            if let existing = layer.animation {
-                                layer.animation = TextAnimation(
-                                    preset: preset,
-                                    delay: existing.delay,
-                                    duration: existing.duration,
-                                    loop: existing.loop,
-                                    loopDelay: existing.loopDelay
-                                )
-                            } else {
-                                layer.animation = TextAnimation(preset: preset)
                             }
                         }
                     }
@@ -185,7 +191,7 @@ public struct AnimatedPostEditorView: View {
             }
         }
         .onAppear {
-            setupInitialMedia()
+            setupInitialContent()
         }
         } // NavigationStack
     }
@@ -246,41 +252,14 @@ public struct AnimatedPostEditorView: View {
 
     private var editorContentView: some View {
         VStack(spacing: 0) {
-            // Gallery mode toggle (if 2+ blocks)
-            if viewModel.blocks.count >= 2 {
-                GalleryModeToggle(isGalleryMode: $isGalleryMode, blockCount: viewModel.blocks.count)
-                    .padding(.top, 8)
-            }
-
-            // Main canvas area
-            if isGalleryMode && viewModel.blocks.count >= 2 {
-                galleryView
-            } else {
-                stackView
-            }
-
-            // Floating selected-layer toolbar
-            if viewModel.selectedLayerId != nil && !viewModel.isPlaying {
-                selectedLayerToolbar
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            // Main canvas area — always gallery mode
+            galleryView
 
             Divider()
 
             // Bottom toolbar
             editorToolbar
                 .background(.ultraThinMaterial)
-        }
-    }
-
-    private var stackView: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                ForEach(viewModel.blocks) { block in
-                    canvasCard(for: block)
-                }
-            }
-            .padding()
         }
     }
 
@@ -312,236 +291,15 @@ public struct AnimatedPostEditorView: View {
             onMediaTransformUpdate: { blockId, transform in
                 viewModel.updateMediaTransform(transform, for: blockId)
             },
-            localImages: viewModel.localImages
-        )
-        .padding(.horizontal)
-    }
-
-    @ViewBuilder
-    private func canvasCard(for block: RichPostBlock) -> some View {
-        MediaCanvasView(
-            block: block,
-            selectedLayerId: $viewModel.selectedLayerId,
-            onLayerTap: { layerId in
-                handleLayerTap(layerId: layerId, blockId: block.id)
-            },
-            onLayerUpdate: { layerId, newPosition in
-                viewModel.updateLayer(layerId, in: block.id) { layer in
-                    layer.position = newPosition
-                }
-            },
-            isPlaying: viewModel.isPlaying,
-            isEditing: !viewModel.isPlaying,
-            isTextEditingLayerId: viewModel.editingLayerId,
-            onTextChange: { layerId, newText in
-                viewModel.updateLayer(layerId, in: block.id) { layer in
-                    layer.text = newText
-                }
-            },
-            onBackgroundTap: {
-                viewModel.deselectAll()
-            },
-            onMediaTransformUpdate: { transform in
-                viewModel.updateMediaTransform(transform, for: block.id)
-            },
-            localImage: viewModel.localImages[block.id]
-        )
-        .overlay(alignment: .topTrailing) {
-            PhotosPicker(
-                selection: pickerSelection(for: block.id),
-                matching: .any(of: [.images, .videos])
-            ) {
-                Image(systemName: "arrow.triangle.2.circlepath.camera")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(6)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Circle())
-            }
-            .padding(8)
-        }
-    }
-
-    // MARK: - Selected Layer Toolbar
-
-    private var selectedLayerToolbar: some View {
-        HStack(spacing: 20) {
-            // Edit text (opens full editor sheet)
-            Button(action: {
-                guard let blockId = viewModel.selectedBlockId,
-                      let layerId = viewModel.selectedLayerId else { return }
-                if let block = viewModel.blocks.first(where: { $0.id == blockId }),
-                   let layer = block.textLayers?.first(where: { $0.id == layerId }) {
-                    editingLayer = layer
-                    showTextEditor = true
-                }
-            }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "pencil")
-                        .font(.title3)
-                    Text("Style")
-                        .font(.caption2)
-                }
-                .foregroundStyle(.blue)
-            }
-
-            // Animate
-            Button(action: {
-                guard let blockId = viewModel.selectedBlockId,
-                      let layerId = viewModel.selectedLayerId else { return }
-                if let block = viewModel.blocks.first(where: { $0.id == blockId }),
-                   let layer = block.textLayers?.first(where: { $0.id == layerId }) {
-                    editingLayer = layer
-                    showAnimationPicker = true
-                }
-            }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "sparkles")
-                        .font(.title3)
-                    Text("Animate")
-                        .font(.caption2)
-                }
-                .foregroundStyle(.purple)
-            }
-
-            // Path (only for path animations)
-            if let layer = viewModel.selectedLayer,
-               layer.animation?.preset == .motionPath || layer.animation?.preset == .curvePath {
-                Button(action: {
-                    guard let blockId = viewModel.selectedBlockId else { return }
-                    editingLayer = layer
-                    showPathDrawing = true
-                }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: "scribble")
-                            .font(.title3)
-                        Text("Path")
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(.orange)
-                }
-            }
-
-            // Visibility toggle
-            if let layer = viewModel.selectedLayer {
-                Button(action: {
-                    guard let blockId = viewModel.selectedBlockId,
-                          let layerId = viewModel.selectedLayerId else { return }
-                    viewModel.toggleLayerVisibility(layerId, in: blockId)
-                }) {
-                    VStack(spacing: 2) {
-                        Image(systemName: layer.visible ? "eye.fill" : "eye.slash.fill")
-                            .font(.title3)
-                        Text(layer.visible ? "Visible" : "Hidden")
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-
-            // Delete
-            Button(action: {
-                guard let blockId = viewModel.selectedBlockId,
-                      let layerId = viewModel.selectedLayerId else { return }
+            localImages: viewModel.localImages,
+            onLayerDelete: { blockId, layerId in
                 viewModel.deleteLayer(layerId, from: blockId)
-            }) {
-                VStack(spacing: 2) {
-                    Image(systemName: "trash")
-                        .font(.title3)
-                    Text("Delete")
-                        .font(.caption2)
-                }
-                .foregroundStyle(.red)
+            },
+            onLayerLongPress: { blockId, layerId in
+                handleLayerLongPress(layerId: layerId, blockId: blockId)
             }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
+        )
         .padding(.horizontal)
-        .padding(.vertical, 4)
-    }
-
-    // MARK: - Keyboard Style Toolbar
-
-    @ViewBuilder
-    private var keyboardStyleToolbar: some View {
-        if viewModel.editingLayerId != nil, let layer = viewModel.selectedLayer {
-            HStack(spacing: 12) {
-                // Font picker
-                Menu {
-                    ForEach(["System", "Georgia", "Helvetica", "Courier", "Times New Roman"], id: \.self) { font in
-                        Button(font) {
-                            updateSelectedLayerStyle { $0.font = font }
-                        }
-                    }
-                } label: {
-                    Image(systemName: "textformat")
-                        .font(.body)
-                }
-
-                // Color picker
-                ColorPicker("", selection: Binding(
-                    get: { Color(hex: layer.style.color) },
-                    set: { newColor in
-                        updateSelectedLayerStyle { $0.color = newColor.toHex() ?? "#FFFFFF" }
-                    }
-                ))
-                .labelsHidden()
-                .frame(width: 28, height: 28)
-
-                Divider().frame(height: 20)
-
-                // Bold
-                Button(action: {
-                    updateSelectedLayerStyle { $0.bold.toggle() }
-                }) {
-                    Image(systemName: "bold")
-                        .foregroundStyle(layer.style.bold ? .blue : .primary)
-                }
-
-                // Italic
-                Button(action: {
-                    updateSelectedLayerStyle { $0.italic.toggle() }
-                }) {
-                    Image(systemName: "italic")
-                        .foregroundStyle(layer.style.italic ? .blue : .primary)
-                }
-
-                // Underline
-                Button(action: {
-                    updateSelectedLayerStyle { $0.underline.toggle() }
-                }) {
-                    Image(systemName: "underline")
-                        .foregroundStyle(layer.style.underline ? .blue : .primary)
-                }
-
-                Divider().frame(height: 20)
-
-                // Alignment
-                Menu {
-                    Button(action: { updateSelectedLayerStyle { $0.align = .left } }) {
-                        Label("Left", systemImage: "text.alignleft")
-                    }
-                    Button(action: { updateSelectedLayerStyle { $0.align = .center } }) {
-                        Label("Center", systemImage: "text.aligncenter")
-                    }
-                    Button(action: { updateSelectedLayerStyle { $0.align = .right } }) {
-                        Label("Right", systemImage: "text.alignright")
-                    }
-                } label: {
-                    Image(systemName: alignmentIconForStyle(layer.style))
-                }
-
-                Spacer()
-
-                // Done
-                Button("Done") {
-                    viewModel.editingLayerId = nil
-                }
-                .fontWeight(.semibold)
-            }
-        }
     }
 
     private var editorToolbar: some View {
@@ -625,35 +383,19 @@ public struct AnimatedPostEditorView: View {
         .padding(.vertical, 12)
     }
 
-    // MARK: - Tap Handling
+    // MARK: - Tap / Long Press Handling
 
     private func handleLayerTap(layerId: UUID, blockId: UUID) {
-        if viewModel.selectedLayerId == layerId {
-            // Already selected — enter inline text editing
-            viewModel.editingLayerId = layerId
-        } else {
-            // Select the layer
-            viewModel.editingLayerId = nil
-            viewModel.selectLayer(layerId, in: blockId)
-        }
+        // Single tap — select and immediately enter inline editing
+        viewModel.selectLayer(layerId, in: blockId)
+        viewModel.editingLayerId = layerId
     }
 
-    // MARK: - Style Helpers
-
-    private func updateSelectedLayerStyle(_ updater: (inout TextLayerStyle) -> Void) {
-        guard let blockId = viewModel.selectedBlockId,
-              let layerId = viewModel.selectedLayerId else { return }
-        viewModel.updateLayer(layerId, in: blockId) { layer in
-            updater(&layer.style)
-        }
-    }
-
-    private func alignmentIconForStyle(_ style: TextLayerStyle) -> String {
-        switch style.align {
-        case .left: return "text.alignleft"
-        case .center: return "text.aligncenter"
-        case .right: return "text.alignright"
-        }
+    private func handleLayerLongPress(layerId: UUID, blockId: UUID) {
+        // Long press — select the layer and open style/animate editor
+        viewModel.editingLayerId = nil
+        viewModel.selectLayer(layerId, in: blockId)
+        showTextEditor = true
     }
 
     // MARK: - PhotosPicker Helpers
@@ -715,7 +457,8 @@ public struct AnimatedPostEditorView: View {
                         icon: "hand.draw",
                         title: "Gestures",
                         tips: [
-                            "Tap text to select, tap again to edit inline",
+                            "Tap text to edit inline",
+                            "Long press text for style & animation",
                             "Drag text layers to reposition",
                             "Pinch to scale text size",
                             "Rotate with two fingers",
@@ -727,7 +470,7 @@ public struct AnimatedPostEditorView: View {
                         icon: "sparkles",
                         title: "Animations",
                         tips: [
-                            "Select a layer, then tap Animate",
+                            "Long press a layer to open style & animation",
                             "Choose from 15+ presets",
                             "Tap Play to preview animations",
                             "Draw custom motion paths"
@@ -738,8 +481,7 @@ public struct AnimatedPostEditorView: View {
                         icon: "paintbrush",
                         title: "Styling",
                         tips: [
-                            "Quick style via keyboard toolbar",
-                            "Full editor via Style button",
+                            "Long press a layer to open style editor",
                             "Font, color, shadow, outline",
                             "Bold, italic, underline"
                         ]
@@ -803,22 +545,42 @@ public struct AnimatedPostEditorView: View {
 
     // MARK: - Actions
 
-    private func setupInitialMedia() {
-        guard let media = initialMedia else { return }
+    private func setupInitialContent() {
+        // Case 1: Re-edit existing content
+        if let content = existingContent {
+            viewModel.loadContent(content, localImages: existingLocalImages)
+            return
+        }
 
-        switch media {
-        case .image(let uiImage, let url, let mediaId):
-            if let uploadedUrl = url, let id = mediaId {
-                viewModel.addImageBlock(url: uploadedUrl, mediaId: id)
-            } else {
-                viewModel.addLocalImageBlock(image: uiImage)
+        // Case 2: Load media items
+        for media in initialMediaItems {
+            switch media {
+            case .image(let uiImage, let url, let mediaId):
+                if let uploadedUrl = url, let id = mediaId {
+                    viewModel.addImageBlock(url: uploadedUrl, mediaId: id)
+                } else {
+                    viewModel.addLocalImageBlock(image: uiImage)
+                }
+
+            case .video(let videoUrl, let mediaId):
+                if let id = mediaId {
+                    viewModel.addVideoBlock(url: videoUrl.absoluteString, mediaId: id)
+                } else {
+                    viewModel.addLocalVideoBlock(localURL: videoUrl)
+                }
             }
+        }
 
-        case .video(let videoUrl, let mediaId):
-            if let id = mediaId {
-                viewModel.addVideoBlock(url: videoUrl.absoluteString, mediaId: id)
-            } else {
-                viewModel.addLocalVideoBlock(localURL: videoUrl)
+        // Case 3: Add initial text
+        if let text = initialText, !text.isEmpty {
+            if viewModel.blocks.isEmpty {
+                // No media — create a blank block to hold the text
+                let blankBlock = RichPostBlock(textLayers: [])
+                viewModel.blocks.append(blankBlock)
+                viewModel.selectedBlockId = blankBlock.id
+            }
+            if let firstBlockId = viewModel.blocks.first?.id {
+                viewModel.addTextLayer(to: firstBlockId, text: text)
             }
         }
     }

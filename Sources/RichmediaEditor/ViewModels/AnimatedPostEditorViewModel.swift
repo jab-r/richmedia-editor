@@ -144,7 +144,7 @@ public class AnimatedPostEditorViewModel: ObservableObject {
 
     // MARK: - Layer Management
 
-    public func addTextLayer(to blockId: UUID? = nil) {
+    public func addTextLayer(to blockId: UUID? = nil, text: String = "Text") {
         let targetBlockId = blockId ?? selectedBlockId
         guard let blockIndex = blocks.firstIndex(where: { $0.id == targetBlockId }) else {
             return
@@ -154,7 +154,7 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         let yPosition = min(0.3 + Double(existingCount) * 0.08, 0.7)
 
         let newLayer = TextLayer(
-            text: "Text",
+            text: text,
             position: LayerPosition(x: 0.5, y: yPosition),
             style: TextLayerStyle()
         )
@@ -288,6 +288,17 @@ public class AnimatedPostEditorViewModel: ObservableObject {
             return
         }
         blocks[blockIndex].lottieOverlay = lottie
+    }
+
+    // MARK: - Content Loading
+
+    /// Load existing RichPostContent for re-editing
+    public func loadContent(_ content: RichPostContent, localImages: [UUID: UIImage] = [:]) {
+        self.blocks = content.blocks
+        self.localImages = localImages
+        if let firstBlock = blocks.first {
+            selectedBlockId = firstBlock.id
+        }
     }
 
     // MARK: - Playback
