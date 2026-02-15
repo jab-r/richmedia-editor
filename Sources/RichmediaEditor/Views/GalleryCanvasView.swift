@@ -23,6 +23,8 @@ struct GalleryCanvasView: View {
     var onBackgroundTap: (() -> Void)? = nil
     var onMediaTransformUpdate: ((UUID, MediaTransform) -> Void)? = nil  // blockId, transform
     var localImages: [UUID: UIImage] = [:]
+    var onLayerDelete: ((UUID, UUID) -> Void)? = nil  // blockId, layerId
+    var onLayerLongPress: ((UUID, UUID) -> Void)? = nil  // blockId, layerId
 
     @State private var currentPage = 0
 
@@ -49,7 +51,13 @@ struct GalleryCanvasView: View {
                         onMediaTransformUpdate: { transform in
                             onMediaTransformUpdate?(block.id, transform)
                         },
-                        localImage: localImages[block.id]
+                        localImage: localImages[block.id],
+                        onLayerDelete: { layerId in
+                            onLayerDelete?(block.id, layerId)
+                        },
+                        onLayerLongPress: { layerId in
+                            onLayerLongPress?(block.id, layerId)
+                        }
                     )
                     .tag(index)
                 }
@@ -115,57 +123,6 @@ struct GalleryCanvasView: View {
             }
             .disabled(currentPage == blocks.count - 1)
         }
-    }
-}
-
-/// Gallery mode toggle for editor
-struct GalleryModeToggle: View {
-    @Binding var isGalleryMode: Bool
-    let blockCount: Int
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Button(action: {
-                withAnimation {
-                    isGalleryMode = false
-                }
-            }) {
-                VStack(spacing: 4) {
-                    Image(systemName: "square.stack")
-                        .font(.title3)
-                    Text("Stack")
-                        .font(.caption2)
-                }
-                .foregroundColor(isGalleryMode ? .secondary : .blue)
-            }
-
-            Divider()
-                .frame(height: 40)
-
-            Button(action: {
-                withAnimation {
-                    isGalleryMode = true
-                }
-            }) {
-                VStack(spacing: 4) {
-                    Image(systemName: "rectangle.stack.fill")
-                        .font(.title3)
-                    Text("Gallery")
-                        .font(.caption2)
-                }
-                .foregroundColor(isGalleryMode ? .blue : .secondary)
-            }
-            .disabled(blockCount < 2)
-
-            if blockCount < 2 {
-                Text("(2+ photos)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(8)
-        .background(.ultraThinMaterial)
-        .cornerRadius(12)
     }
 }
 

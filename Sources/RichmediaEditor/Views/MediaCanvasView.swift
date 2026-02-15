@@ -22,6 +22,8 @@ struct MediaCanvasView: View {
     var onBackgroundTap: (() -> Void)? = nil
     var onMediaTransformUpdate: ((MediaTransform) -> Void)? = nil
     var localImage: UIImage? = nil
+    var onLayerDelete: ((UUID) -> Void)? = nil
+    var onLayerLongPress: ((UUID) -> Void)? = nil
 
     @State private var player: AVPlayer?
 
@@ -42,7 +44,9 @@ struct MediaCanvasView: View {
         onTextChange: ((UUID, String) -> Void)? = nil,
         onBackgroundTap: (() -> Void)? = nil,
         onMediaTransformUpdate: ((MediaTransform) -> Void)? = nil,
-        localImage: UIImage? = nil
+        localImage: UIImage? = nil,
+        onLayerDelete: ((UUID) -> Void)? = nil,
+        onLayerLongPress: ((UUID) -> Void)? = nil
     ) {
         self.block = block
         self._selectedLayerId = selectedLayerId
@@ -55,6 +59,8 @@ struct MediaCanvasView: View {
         self.onBackgroundTap = onBackgroundTap
         self.onMediaTransformUpdate = onMediaTransformUpdate
         self.localImage = localImage
+        self.onLayerDelete = onLayerDelete
+        self.onLayerLongPress = onLayerLongPress
 
         let transform = block.mediaTransform ?? MediaTransform()
         _mediaScale = State(initialValue: transform.scale)
@@ -101,6 +107,12 @@ struct MediaCanvasView: View {
                             },
                             onTextChange: { newText in
                                 onTextChange?(layer.id, newText)
+                            },
+                            onDelete: {
+                                onLayerDelete?(layer.id)
+                            },
+                            onLongPress: {
+                                onLayerLongPress?(layer.id)
                             }
                         )
                     }
@@ -260,6 +272,8 @@ struct TextLayerOverlay: View {
     let onTap: () -> Void
     let onPositionUpdate: (LayerPosition) -> Void
     let onTextChange: (String) -> Void
+    var onDelete: (() -> Void)? = nil
+    var onLongPress: (() -> Void)? = nil
 
     @State private var currentPosition: CGPoint
     @State private var currentScale: CGFloat
@@ -275,7 +289,9 @@ struct TextLayerOverlay: View {
         isTextEditing: Bool,
         onTap: @escaping () -> Void,
         onPositionUpdate: @escaping (LayerPosition) -> Void,
-        onTextChange: @escaping (String) -> Void
+        onTextChange: @escaping (String) -> Void,
+        onDelete: (() -> Void)? = nil,
+        onLongPress: (() -> Void)? = nil
     ) {
         self.layer = layer
         self.canvasSize = canvasSize
@@ -285,6 +301,8 @@ struct TextLayerOverlay: View {
         self.onTap = onTap
         self.onPositionUpdate = onPositionUpdate
         self.onTextChange = onTextChange
+        self.onDelete = onDelete
+        self.onLongPress = onLongPress
 
         _currentPosition = State(initialValue: CGPoint(
             x: layer.position.x * canvasSize.width,
@@ -309,6 +327,9 @@ struct TextLayerOverlay: View {
                     .gesture(isTextEditing ? nil : magnificationGesture)
                     .gesture(isTextEditing ? nil : rotationGesture)
                     .onTapGesture(perform: onTap)
+                    .onLongPressGesture {
+                        onLongPress?()
+                    }
             } else {
                 AnimationRenderer.animated(layer: layer, content: textContent)
                     .scaleEffect(currentScale)
@@ -322,6 +343,10 @@ struct TextLayerOverlay: View {
                 isFieldFocused = true
             } else {
                 isFieldFocused = false
+                // Delete layer if text is empty when editing ends
+                if editableText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    onDelete?()
+                }
             }
         }
         .onChange(of: editableText) { newValue in
