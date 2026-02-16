@@ -286,7 +286,7 @@ Controls how a text layer animates. If null, the text is static (no animation).
 
 ### Animation Presets
 
-There are 19 presets organized into four categories.
+There are 29 presets organized into four categories.
 
 #### Entrance (play once, bring element in)
 
@@ -300,6 +300,10 @@ There are 19 presets organized into four categories.
 | `zoomIn` | Scale up with fade | Scale 0.5 → 1.0 with opacity 0 → 1 |
 | `bounceIn` | Spring scale | Scale 0 → 1.0 with spring easing |
 | `popIn` | Spring scale with fade | Scale 0.3 → 1.0 with spring easing and opacity 0 → 1 |
+| `typewriter` | Character reveal | Characters appear one at a time left-to-right |
+| `blurIn` | Blur to sharp with fade | Blur 20px → 0 with opacity 0 → 1 |
+| `flipInX` | 3D flip on X axis | rotateX 90° → 0° with perspective and opacity 0 → 1 |
+| `flipInY` | 3D flip on Y axis | rotateY 90° → 0° with perspective and opacity 0 → 1 |
 
 #### Exit (play once, take element out)
 
@@ -309,6 +313,8 @@ There are 19 presets organized into four categories.
 | `slideOutUp` | Slide up + fade out | Y translation upward with opacity 1 → 0 |
 | `slideOutDown` | Slide down + fade out | Y translation downward with opacity 1 → 0 |
 | `zoomOut` | Scale down with fade | Scale 1.0 → 0.5 with opacity 1 → 0 |
+| `blurOut` | Sharp to blur with fade | Blur 0 → 20px with opacity 1 → 0 |
+| `shrinkOut` | Shrink to nothing | Scale 1.0 → 0 with opacity 1 → 0 |
 
 #### Loop (repeating continuous effects)
 
@@ -321,6 +327,12 @@ These presets should have `loop: true` set. They oscillate continuously.
 | `float` | Gentle float | Y offset oscillates -8pt ↔ +8pt |
 | `wiggle` | Rotation wiggle | Rotation oscillates -5° ↔ +5° |
 | `rotate` | Continuous rotation | 360° clockwise rotation per cycle |
+| `glow` | Pulsing glow | Text shadow radius oscillates 0 ↔ 12px with opacity |
+| `shake` | Rapid horizontal shake | X offset oscillates -3px ↔ +3px rapidly |
+| `heartbeat` | Double-pump scale | Scale 1.0 → 1.15 → 1.0 → 1.05 → 1.0 (two pumps per cycle) |
+| `colorCycle` | Hue rotation | Continuous 360° hue rotation |
+| `swing` | Pendulum swing | Rotation oscillates -8° ↔ +8° from top anchor |
+| `flash` | Strobe flash | Opacity toggles 1 → 0 → 1 → 0 → 1 per cycle |
 
 #### Path (requires `path` field on TextLayer)
 
@@ -623,6 +635,28 @@ Map animation presets to CSS `@keyframes`. Apply with `animation-delay` matching
   100% { opacity: 1; transform: scale(1.0); }
 }
 
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+/* Usage: apply to element with overflow:hidden; white-space:nowrap;
+   animation: typewriter <duration> steps(<charCount>) both; */
+
+@keyframes blurIn {
+  from { opacity: 0; filter: blur(20px); }
+  to { opacity: 1; filter: blur(0); }
+}
+
+@keyframes flipInX {
+  from { opacity: 0; transform: perspective(400px) rotateX(90deg); }
+  to { opacity: 1; transform: perspective(400px) rotateX(0deg); }
+}
+
+@keyframes flipInY {
+  from { opacity: 0; transform: perspective(400px) rotateY(90deg); }
+  to { opacity: 1; transform: perspective(400px) rotateY(0deg); }
+}
+
 /* Exit */
 @keyframes fadeOut {
   from { opacity: 1; }
@@ -642,6 +676,16 @@ Map animation presets to CSS `@keyframes`. Apply with `animation-delay` matching
 @keyframes zoomOut {
   from { opacity: 1; transform: scale(1.0); }
   to { opacity: 0; transform: scale(0.5); }
+}
+
+@keyframes blurOut {
+  from { opacity: 1; filter: blur(0); }
+  to { opacity: 0; filter: blur(20px); }
+}
+
+@keyframes shrinkOut {
+  from { opacity: 1; transform: scale(1.0); }
+  to { opacity: 0; transform: scale(0); }
 }
 
 /* Loop (use animation-iteration-count: infinite) */
@@ -668,6 +712,41 @@ Map animation presets to CSS `@keyframes`. Apply with `animation-delay` matching
 @keyframes rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes glow {
+  0%, 100% { text-shadow: 0 0 0 rgba(255,255,255,0); }
+  50% { text-shadow: 0 0 12px rgba(255,255,255,0.8); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 50%, 90% { transform: translateX(-3px); }
+  30%, 70% { transform: translateX(3px); }
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1.0); }
+  15% { transform: scale(1.15); }
+  30% { transform: scale(1.0); }
+  45% { transform: scale(1.05); }
+  60% { transform: scale(1.0); }
+}
+
+@keyframes colorCycle {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+@keyframes swing {
+  0%, 100% { transform: rotate(0deg); transform-origin: top center; }
+  25% { transform: rotate(8deg); }
+  75% { transform: rotate(-8deg); }
+}
+
+@keyframes flash {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0; }
 }
 ```
 
@@ -968,7 +1047,7 @@ A valid `RichPostContent` document must satisfy:
 - `LayerPosition.scale` is within 0.5–3.0
 - `MediaTransform.scale` is within 1.0–5.0
 - Color strings are valid `#RRGGBB` hex format
-- `animation.preset` is one of the 19 defined preset strings
+- `animation.preset` is one of the 29 defined preset strings
 - Path-based animation presets (`motionPath`, `curvePath`) have a corresponding non-null `path`
 
 ## Backward Compatibility
