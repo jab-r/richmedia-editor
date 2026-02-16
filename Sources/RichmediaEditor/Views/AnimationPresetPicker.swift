@@ -73,6 +73,8 @@ struct PresetThumbnail: View {
     let onTap: () -> Void
 
     @State private var isAnimating = false
+    @State private var hueRotation: Double = 0
+    @State private var flashPhase = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -191,6 +193,72 @@ struct PresetThumbnail: View {
                 .rotationEffect(.degrees(isAnimating ? 360 : 0))
                 .animation(.linear(duration: 2.0).repeatForever(autoreverses: false), value: isAnimating)
 
+        // Additional loop effects
+        case .glow:
+            baseText
+                .shadow(color: .white.opacity(isAnimating ? 0.8 : 0), radius: isAnimating ? 12 : 0)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+        case .shake:
+            baseText
+                .offset(x: isAnimating ? 3 : -3)
+                .animation(.easeInOut(duration: 0.1).repeatForever(autoreverses: true), value: isAnimating)
+        case .heartbeat:
+            baseText
+                .scaleEffect(isAnimating ? 1.15 : 1.0)
+                .animation(.easeInOut(duration: 0.3).repeatForever(autoreverses: true), value: isAnimating)
+        case .colorCycle:
+            baseText
+                .hueRotation(.degrees(hueRotation))
+                .foregroundColor(.red)
+                .onAppear {
+                    withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                        hueRotation = 360
+                    }
+                }
+        case .swing:
+            baseText
+                .rotationEffect(.degrees(isAnimating ? 8 : -8), anchor: .top)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: isAnimating)
+        case .flash:
+            baseText
+                .opacity(flashPhase ? 0 : 1)
+                .onAppear {
+                    Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
+                        flashPhase.toggle()
+                    }
+                }
+
+        // Additional entrance
+        case .typewriter:
+            TypewriterPreview()
+        case .blurIn:
+            baseText
+                .blur(radius: isAnimating ? 0 : 10)
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .flipInX:
+            baseText
+                .rotation3DEffect(.degrees(isAnimating ? 0 : 90), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+        case .flipInY:
+            baseText
+                .rotation3DEffect(.degrees(isAnimating ? 0 : 90), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                .opacity(isAnimating ? 1 : 0)
+                .animation(.easeOut(duration: 1.0).repeatForever(), value: isAnimating)
+
+        // Additional exit
+        case .blurOut:
+            baseText
+                .blur(radius: isAnimating ? 10 : 0)
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
+        case .shrinkOut:
+            baseText
+                .scaleEffect(isAnimating ? 0 : 1.0)
+                .opacity(isAnimating ? 0 : 1)
+                .animation(.easeIn(duration: 1.0).repeatForever(), value: isAnimating)
+
         // Path (placeholder)
         case .motionPath, .curvePath:
             baseText
@@ -201,6 +269,27 @@ struct PresetThumbnail: View {
         withAnimation {
             isAnimating = true
         }
+    }
+}
+
+/// Typewriter preview that cycles through revealing text
+private struct TypewriterPreview: View {
+    @State private var visibleCount = 0
+    private let text = "Aa"
+
+    var body: some View {
+        Text(String(text.prefix(visibleCount)))
+            .font(.system(size: 32, weight: .bold))
+            .foregroundColor(.primary)
+            .onAppear {
+                Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { _ in
+                    if visibleCount >= text.count {
+                        visibleCount = 0
+                    } else {
+                        visibleCount += 1
+                    }
+                }
+            }
     }
 }
 

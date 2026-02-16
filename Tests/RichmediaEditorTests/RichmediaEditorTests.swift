@@ -27,10 +27,64 @@ final class RichmediaEditorTests: XCTestCase {
     }
 
     func testAnimationPresetCategories() {
+        // Original presets
         XCTAssertEqual(AnimationPreset.fadeIn.category, .entrance)
         XCTAssertEqual(AnimationPreset.fadeOut.category, .exit)
         XCTAssertEqual(AnimationPreset.pulse.category, .loop)
         XCTAssertEqual(AnimationPreset.motionPath.category, .path)
+
+        // New entrance presets
+        XCTAssertEqual(AnimationPreset.typewriter.category, .entrance)
+        XCTAssertEqual(AnimationPreset.blurIn.category, .entrance)
+        XCTAssertEqual(AnimationPreset.flipInX.category, .entrance)
+        XCTAssertEqual(AnimationPreset.flipInY.category, .entrance)
+
+        // New exit presets
+        XCTAssertEqual(AnimationPreset.blurOut.category, .exit)
+        XCTAssertEqual(AnimationPreset.shrinkOut.category, .exit)
+
+        // New loop presets
+        XCTAssertEqual(AnimationPreset.glow.category, .loop)
+        XCTAssertEqual(AnimationPreset.shake.category, .loop)
+        XCTAssertEqual(AnimationPreset.heartbeat.category, .loop)
+        XCTAssertEqual(AnimationPreset.colorCycle.category, .loop)
+        XCTAssertEqual(AnimationPreset.swing.category, .loop)
+        XCTAssertEqual(AnimationPreset.flash.category, .loop)
+    }
+
+    func testAnimationPresetCount() {
+        XCTAssertEqual(AnimationPreset.allCases.count, 29)
+    }
+
+    func testNewPresetDisplayNames() {
+        XCTAssertEqual(AnimationPreset.typewriter.displayName, "Typewriter")
+        XCTAssertEqual(AnimationPreset.blurIn.displayName, "Blur In")
+        XCTAssertEqual(AnimationPreset.flipInX.displayName, "Flip In X")
+        XCTAssertEqual(AnimationPreset.flipInY.displayName, "Flip In Y")
+        XCTAssertEqual(AnimationPreset.blurOut.displayName, "Blur Out")
+        XCTAssertEqual(AnimationPreset.shrinkOut.displayName, "Shrink Out")
+        XCTAssertEqual(AnimationPreset.glow.displayName, "Glow")
+        XCTAssertEqual(AnimationPreset.shake.displayName, "Shake")
+        XCTAssertEqual(AnimationPreset.heartbeat.displayName, "Heartbeat")
+        XCTAssertEqual(AnimationPreset.colorCycle.displayName, "Color Cycle")
+        XCTAssertEqual(AnimationPreset.swing.displayName, "Swing")
+        XCTAssertEqual(AnimationPreset.flash.displayName, "Flash")
+    }
+
+    func testNewPresetSerialization() {
+        let newPresets: [AnimationPreset] = [
+            .typewriter, .blurIn, .flipInX, .flipInY,
+            .blurOut, .shrinkOut,
+            .glow, .shake, .heartbeat, .colorCycle, .swing, .flash
+        ]
+
+        for preset in newPresets {
+            let animation = TextAnimation(preset: preset, duration: 1.0)
+            let encoder = JSONEncoder()
+            let data = try! encoder.encode(animation)
+            let decoded = try! JSONDecoder().decode(TextAnimation.self, from: data)
+            XCTAssertEqual(decoded.preset, preset, "Round-trip failed for \(preset.rawValue)")
+        }
     }
 
     func testRichPostContentSerialization() {

@@ -28,6 +28,9 @@ private struct AnimatedTextLayerView<Content: View>: View {
 
     @State private var isAnimating = false
     @State private var animationCycle = 0
+    @State private var hueRotation: Double = 0
+    @State private var flashPhase = false
+    @State private var typewriterCount = 0
 
     var body: some View {
         Group {
@@ -233,6 +236,178 @@ private struct AnimatedTextLayerView<Content: View>: View {
                     }
                 }
 
+        case .glow:
+            content
+                .shadow(color: .white.opacity(isAnimating ? 0.8 : 0), radius: isAnimating ? 12 : 0)
+                .onAppear {
+                    scheduleLoopingAnimation(animation: animation) {
+                        withAnimation(
+                            .easeInOut(duration: animation.duration)
+                        ) {
+                            isAnimating.toggle()
+                        }
+                    }
+                }
+
+        case .shake:
+            content
+                .offset(x: isAnimating ? 3 : -3)
+                .onAppear {
+                    scheduleLoopingAnimation(animation: animation) {
+                        withAnimation(
+                            .easeInOut(duration: animation.duration * 0.15)
+                        ) {
+                            isAnimating.toggle()
+                        }
+                    }
+                }
+
+        case .heartbeat:
+            content
+                .scaleEffect(isAnimating ? 1.15 : 1.0)
+                .onAppear {
+                    scheduleLoopingAnimation(animation: animation) {
+                        // First pump
+                        withAnimation(.easeInOut(duration: animation.duration * 0.15)) {
+                            isAnimating = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.15) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.15)) {
+                                isAnimating = false
+                            }
+                        }
+                        // Second pump
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.35) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.15)) {
+                                isAnimating = true
+                            }
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.5) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.15)) {
+                                isAnimating = false
+                            }
+                        }
+                    }
+                }
+
+        case .colorCycle:
+            content
+                .hueRotation(.degrees(hueRotation))
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + animation.delay) {
+                        withAnimation(.linear(duration: animation.duration).repeatForever(autoreverses: false)) {
+                            hueRotation = 360
+                        }
+                    }
+                }
+
+        case .swing:
+            content
+                .rotationEffect(.degrees(isAnimating ? 8 : -8), anchor: .top)
+                .onAppear {
+                    scheduleLoopingAnimation(animation: animation) {
+                        withAnimation(
+                            .easeInOut(duration: animation.duration)
+                        ) {
+                            isAnimating.toggle()
+                        }
+                    }
+                }
+
+        case .flash:
+            content
+                .opacity(flashPhase ? 0 : 1)
+                .onAppear {
+                    scheduleLoopingAnimation(animation: animation) {
+                        withAnimation(.easeInOut(duration: animation.duration * 0.1)) {
+                            flashPhase = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.25) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.1)) {
+                                flashPhase = false
+                            }
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.5) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.1)) {
+                                flashPhase = true
+                            }
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration * 0.75) {
+                            withAnimation(.easeInOut(duration: animation.duration * 0.1)) {
+                                flashPhase = false
+                            }
+                        }
+                    }
+                }
+
+        // MARK: - Additional Entrance Effects
+        case .typewriter:
+            TypewriterView(
+                text: layer.text,
+                content: content,
+                duration: animation.duration,
+                delay: animation.delay
+            )
+
+        case .blurIn:
+            content
+                .blur(radius: isAnimating ? 0 : 20)
+                .opacity(isAnimating ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeOut(duration: animation.duration).delay(animation.delay)) {
+                        isAnimating = true
+                    }
+                }
+
+        case .flipInX:
+            content
+                .rotation3DEffect(
+                    .degrees(isAnimating ? 0 : 90),
+                    axis: (x: 1, y: 0, z: 0),
+                    perspective: 0.5
+                )
+                .opacity(isAnimating ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeOut(duration: animation.duration).delay(animation.delay)) {
+                        isAnimating = true
+                    }
+                }
+
+        case .flipInY:
+            content
+                .rotation3DEffect(
+                    .degrees(isAnimating ? 0 : 90),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.5
+                )
+                .opacity(isAnimating ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeOut(duration: animation.duration).delay(animation.delay)) {
+                        isAnimating = true
+                    }
+                }
+
+        // MARK: - Additional Exit Effects
+        case .blurOut:
+            content
+                .blur(radius: isAnimating ? 20 : 0)
+                .opacity(isAnimating ? 0 : 1)
+                .onAppear {
+                    withAnimation(.easeIn(duration: animation.duration).delay(animation.delay)) {
+                        isAnimating = true
+                    }
+                }
+
+        case .shrinkOut:
+            content
+                .scaleEffect(isAnimating ? 0 : 1.0)
+                .opacity(isAnimating ? 0 : 1)
+                .onAppear {
+                    withAnimation(.easeIn(duration: animation.duration).delay(animation.delay)) {
+                        isAnimating = true
+                    }
+                }
+
         // MARK: - Path-based Animations
         case .motionPath, .curvePath:
             if let path = layer.path {
@@ -266,6 +441,39 @@ private struct AnimatedTextLayerView<Content: View>: View {
                 performLoop(animation: animation, perform: perform)
             }
         }
+    }
+}
+
+/// View that reveals text one character at a time (typewriter effect)
+private struct TypewriterView<Content: View>: View {
+    let text: String
+    let content: Content
+    let duration: TimeInterval
+    let delay: TimeInterval
+
+    @State private var visibleCount = 0
+
+    var body: some View {
+        content
+            .mask(
+                HStack(spacing: 0) {
+                    Text(String(text.prefix(visibleCount)))
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            )
+            .onAppear {
+                let charCount = text.count
+                guard charCount > 0 else { return }
+                let interval = duration / Double(charCount)
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    for i in 1...charCount {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + interval * Double(i)) {
+                            visibleCount = i
+                        }
+                    }
+                }
+            }
     }
 }
 
