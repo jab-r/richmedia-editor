@@ -76,6 +76,12 @@ struct GalleryCanvasView: View {
                     selectedBlockId = blocks[newPage].id
                 }
             }
+            .onChange(of: blocks.count) { _ in
+                // Re-sync selected block when blocks are added/removed
+                if blocks.indices.contains(currentPage) {
+                    selectedBlockId = blocks[currentPage].id
+                }
+            }
 
             // Page indicator with photo counts
             pageIndicator
