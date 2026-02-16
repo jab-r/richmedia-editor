@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import CoreLocation
 
 @MainActor
 public class AnimatedPostEditorViewModel: ObservableObject {
@@ -25,6 +26,9 @@ public class AnimatedPostEditorViewModel: ObservableObject {
     /// Stores UIImages for blocks that haven't been uploaded yet
     /// Key: block.id, Value: UIImage
     @Published public var localImages: [UUID: UIImage] = [:]
+
+    /// EXIF GPS location from the first image added (nil if no GPS data)
+    @Published public var firstImageLocation: CLLocationCoordinate2D? = nil
 
     // MARK: - Computed Properties
 

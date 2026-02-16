@@ -9,6 +9,9 @@ import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
 import Combine
+import CoreLocation
+import ImageIO
+import AVFoundation
 
 #if canImport(UIKit)
 
@@ -19,7 +22,7 @@ public struct AnimatedPostEditorView: View {
     let initialText: String?
     let existingContent: RichPostContent?
     let existingLocalImages: [UUID: UIImage]
-    let onComplete: (RichPostContent, [UUID: UIImage]) -> Void
+    let onComplete: (RichPostContent, [UUID: UIImage], CLLocationCoordinate2D?) -> Void
     let onCancel: () -> Void
 
     @StateObject private var viewModel = AnimatedPostEditorViewModel()
@@ -39,7 +42,7 @@ public struct AnimatedPostEditorView: View {
     /// Create editor with a single optional media item (backward-compatible)
     public init(
         initialMedia: MediaInput? = nil,
-        onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
+        onComplete: @escaping (RichPostContent, [UUID: UIImage], CLLocationCoordinate2D?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.initialMediaItems = initialMedia.map { [$0] } ?? []
@@ -54,7 +57,7 @@ public struct AnimatedPostEditorView: View {
     public init(
         media: [MediaInput],
         initialText: String? = nil,
-        onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
+        onComplete: @escaping (RichPostContent, [UUID: UIImage], CLLocationCoordinate2D?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.initialMediaItems = media
@@ -69,7 +72,7 @@ public struct AnimatedPostEditorView: View {
     public init(
         content: RichPostContent,
         localImages: [UUID: UIImage] = [:],
-        onComplete: @escaping (RichPostContent, [UUID: UIImage]) -> Void,
+        onComplete: @escaping (RichPostContent, [UUID: UIImage], CLLocationCoordinate2D?) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.initialMediaItems = []
@@ -516,6 +519,10 @@ public struct AnimatedPostEditorView: View {
     private func loadMediaItem(_ item: PhotosPickerItem, replacingBlock target: UUID?) async {
         if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }),
            let movie = try? await item.loadTransferable(type: TransferableMovie.self) {
+            // Extract GPS from video's QuickTime metadata if no location yet
+            if viewModel.firstImageLocation == nil {
+                viewModel.firstImageLocation = await Self.extractVideoGPSLocation(from: movie.url)
+            }
             if let target {
                 viewModel.replaceBlockVideo(target, localURL: movie.url)
             } else {
@@ -523,6 +530,10 @@ public struct AnimatedPostEditorView: View {
             }
         } else if let data = try? await item.loadTransferable(type: Data.self),
                   let image = UIImage(data: data) {
+            // Extract EXIF GPS from first image for post location
+            if viewModel.firstImageLocation == nil {
+                viewModel.firstImageLocation = Self.extractGPSLocation(from: data)
+            }
             if let target {
                 viewModel.replaceBlockImage(target, image: image)
             } else {
@@ -680,7 +691,52 @@ public struct AnimatedPostEditorView: View {
         }
 
         let content = viewModel.richContent
-        onComplete(content, viewModel.localImages)
+        onComplete(content, viewModel.localImages, viewModel.firstImageLocation)
+    }
+
+    // MARK: - EXIF GPS Extraction
+
+    /// Extract GPS coordinates from raw image data using ImageIO.
+    private static func extractGPSLocation(from imageData: Data) -> CLLocationCoordinate2D? {
+        guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let gps = properties[kCGImagePropertyGPSDictionary] as? [CFString: Any] else {
+            return nil
+        }
+        guard let latitude = gps[kCGImagePropertyGPSLatitude] as? Double,
+              let latitudeRef = gps[kCGImagePropertyGPSLatitudeRef] as? String,
+              let longitude = gps[kCGImagePropertyGPSLongitude] as? Double,
+              let longitudeRef = gps[kCGImagePropertyGPSLongitudeRef] as? String else {
+            return nil
+        }
+        let lat = latitudeRef == "S" ? -latitude : latitude
+        let lon = longitudeRef == "W" ? -longitude : longitude
+        guard (-90...90).contains(lat), (-180...180).contains(lon) else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+    }
+
+    /// Extract GPS coordinates from video QuickTime metadata (ISO 6709 format).
+    private static func extractVideoGPSLocation(from url: URL) async -> CLLocationCoordinate2D? {
+        let asset = AVAsset(url: url)
+        guard let item = try? await AVMetadataItem.metadataItems(
+            from: asset.load(.metadata),
+            filteredByIdentifier: .quickTimeMetadataLocationISO6709
+        ).first,
+        let str = try? await item.load(.stringValue) else {
+            return nil
+        }
+        // ISO 6709 format: "+DD.DDDD-DDD.DDDD" or "+DD.DDDD+DDD.DDDD+AAA.AAA/"
+        let pattern = "([+-][0-9.]+)([+-][0-9.]+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: str, range: NSRange(str.startIndex..., in: str)),
+              let latRange = Range(match.range(at: 1), in: str),
+              let lonRange = Range(match.range(at: 2), in: str),
+              let lat = Double(str[latRange]),
+              let lon = Double(str[lonRange]),
+              (-90...90).contains(lat), (-180...180).contains(lon) else {
+            return nil
+        }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lon)
     }
 }
 
