@@ -17,7 +17,8 @@ When a post has this `contentType`, the `message` field contains JSON (not plain
 ```json
 {
   "version": 1,
-  "blocks": [ ... ]
+  "blocks": [ ... ],
+  "musicTrack": { ... }
 }
 ```
 
@@ -25,6 +26,7 @@ When a post has this `contentType`, the `message` field contains JSON (not plain
 |----------|------|----------|-------------|
 | `version` | int | yes | Schema version. Currently `1` |
 | `blocks` | array | yes | Ordered list of `RichPostBlock` objects |
+| `musicTrack` | MusicTrack | no | Background music track (Apple Music 30-second preview, loops during playback) |
 
 ---
 
@@ -436,6 +438,49 @@ A Lottie animation overlay. Can appear at the block level (`lottieOverlay`, rend
 
 ---
 
+## MusicTrack
+
+Optional background music for the post. References an Apple Music catalog track and includes a 30-second AAC preview URL for playback. The preview loops continuously while the post is being viewed.
+
+Music is a **post-level** property (not per-block) — the same track plays across all blocks in a gallery/carousel.
+
+```json
+{
+  "trackName": "Blinding Lights",
+  "artistName": "The Weeknd",
+  "albumName": "After Hours",
+  "previewURL": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview/v4/example.m4a",
+  "artworkURL": "https://is1-ssl.mzstatic.com/image/thumb/Music/v4/example/300x300bb.jpg",
+  "appleMusicID": "1499378108"
+}
+```
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `trackName` | string | yes | Display name of the track |
+| `artistName` | string | yes | Artist name |
+| `albumName` | string | no | Album name |
+| `previewURL` | string | yes | URL to the 30-second AAC preview (may expire; resolve from `appleMusicID` if stale) |
+| `artworkURL` | string | no | Album artwork URL |
+| `appleMusicID` | string | yes | Apple Music catalog ID — durable identifier for re-resolving on any platform |
+
+### Playback behavior
+
+- The preview audio loops continuously while the post is visible
+- Playback starts automatically when the post enters the viewport (GalleryPlayerView)
+- Playback pauses when the post leaves the viewport or the app backgrounds
+- On iOS, uses `AVAudioSession` with `.playback` category for background-capable audio
+- If the `previewURL` has expired, clients should re-resolve the track via the Apple Music API using `appleMusicID`
+
+### Cross-platform resolution
+
+The `appleMusicID` is the durable identifier. All platforms can use it to:
+- Look up the track in the Apple Music catalog API
+- Obtain a fresh `previewURL` if the cached one has expired
+- Display track metadata (name, artist, artwork) even without playback capability
+
+---
+
 ## TextBlockStyle (for text-only blocks)
 
 Used on text blocks (blocks with the `text` key). Simpler than `TextLayerStyle` — no shadow/outline.
@@ -537,6 +582,17 @@ When a `RichPostContent` has multiple blocks, render as a **horizontally swipeab
 - Each block renders independently (its own `textLayers`, `mediaTransform`, `lottieOverlay`)
 - Animations play per-block when the block becomes visible
 - Auto-advance is optional (not specified in the format — up to the renderer)
+
+### Music playback
+
+If `musicTrack` is present on the `RichPostContent`, play the 30-second AAC preview in a loop while the post is visible:
+
+1. Fetch audio from `musicTrack.previewURL`
+2. Begin playback when the post enters the viewport
+3. Loop the preview continuously
+4. Pause when the post leaves the viewport or the app backgrounds
+5. Optionally display track info (name, artist, artwork) as a small overlay at the bottom of the player
+6. If the preview URL fails (expired), re-resolve via Apple Music API using `appleMusicID`
 
 ### Animation behavior
 
@@ -959,6 +1015,40 @@ A multi-block post renders as a swipeable carousel. Each block has its own media
 }
 ```
 
+### Animated post with background music
+
+```json
+{
+  "version": 1,
+  "musicTrack": {
+    "trackName": "Blinding Lights",
+    "artistName": "The Weeknd",
+    "albumName": "After Hours",
+    "previewURL": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview/v4/example.m4a",
+    "artworkURL": "https://is1-ssl.mzstatic.com/image/thumb/Music/v4/example/300x300bb.jpg",
+    "appleMusicID": "1499378108"
+  },
+  "blocks": [
+    {
+      "id": "a1b2c3d4-0000-0000-0000-000000000001",
+      "image": "cf-abc123",
+      "url": "https://cdn.example.com/photo.jpg",
+      "textLayers": [
+        {
+          "id": "a1b2c3d4-0000-0000-0000-000000000010",
+          "text": "Night vibes",
+          "position": { "x": 0.5, "y": 0.5, "rotation": 0, "scale": 1.2 },
+          "style": { "font": "Helvetica", "size": 36, "color": "#FFFFFF", "bold": true, "align": "center" },
+          "animation": { "preset": "fadeSlideUp", "delay": 0, "duration": 0.8, "loop": false, "loopDelay": 0 },
+          "visible": true,
+          "zIndex": 0
+        }
+      ]
+    }
+  ]
+}
+```
+
 ### Animated post with Lottie overlay
 
 ```json
@@ -1049,6 +1139,7 @@ A valid `RichPostContent` document must satisfy:
 - Color strings are valid `#RRGGBB` hex format
 - `animation.preset` is one of the 29 defined preset strings
 - Path-based animation presets (`motionPath`, `curvePath`) have a corresponding non-null `path`
+- If `musicTrack` is present, it must have non-empty `trackName`, `artistName`, `previewURL`, and `appleMusicID`
 
 ## Backward Compatibility
 

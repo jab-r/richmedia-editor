@@ -24,10 +24,10 @@ Requires Xcode 15+ / Swift 5.9+. Single external dependency: Lottie 4.4+.
 
 ```
 Sources/RichmediaEditor/
-├── Models/          # Codable data types (RichPostContent, TextLayer, MediaTransform, etc.)
+├── Models/          # Codable data types (RichPostContent, TextLayer, MediaTransform, MusicTrack, etc.)
 ├── Views/           # SwiftUI views (editor, canvas, pickers, overlays, gallery player)
 ├── ViewModels/      # AnimatedPostEditorViewModel (@MainActor state)
-├── Services/        # AnimationRenderer, PathAnimationRenderer, LottieImporter
+├── Services/        # AnimationRenderer, PathAnimationRenderer, LottieImporter, AppleMusicSearchService, PreviewAudioPlayer
 ├── Utilities/       # Extensions (ColorExtensions)
 └── Resources/       # Bundled Lottie JSON templates
 ```
@@ -39,7 +39,7 @@ Sources/RichmediaEditor/
 
 ### Document Format
 
-`RichPostContent` → JSON with `blocks[]`, each block has media reference + `textLayers[]` with position (normalized 0-1), style, animation preset, path, optional Lottie overlay, and optional `mediaTransform` (zoom/pan state).
+`RichPostContent` → JSON with `blocks[]`, each block has media reference + `textLayers[]` with position (normalized 0-1), style, animation preset, path, optional Lottie overlay, and optional `mediaTransform` (zoom/pan state). Optional `musicTrack` at the root level for background Apple Music preview audio.
 
 The canonical format specification is at `../loxation-sw/docs/guide_to_richmedia_posts.md`. Keep it in sync when adding/changing model fields.
 
@@ -68,7 +68,8 @@ The canonical format specification is at `../loxation-sw/docs/guide_to_richmedia
 - `AnimatedPostEditorView` — main editor with bottom toolbar (media, text, lottie, play) and floating selected-layer toolbar
 - `MediaCanvasView` — single block canvas with media background, gesture handling, and text layer overlays
 - `GalleryCanvasView` — multi-block TabView for gallery/carousel editing
-- `GalleryPlayerView` — read-only viewer with auto-play animations
+- `GalleryPlayerView` — read-only viewer with auto-play animations and background music playback
+- `MusicSearchView` — Apple Music search picker for selecting background tracks
 - `TextLayerOverlay` — inline-editable text with drag/pinch/rotate gestures (inside MediaCanvasView)
 
 ## Do NOT
