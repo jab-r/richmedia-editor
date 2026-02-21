@@ -126,7 +126,9 @@ public struct GalleryPlayerView: View {
                 }
             }
         }
-        .onAppear {
+        .task {
+            // Start music when the view is ready (more reliable than .onAppear
+            // inside NavigationStack / sheet presentations)
             if let track = content.musicTrack {
                 audioPlayer.play(track)
             }
@@ -136,9 +138,7 @@ public struct GalleryPlayerView: View {
         }
         .onChange(of: isPlaying) { playing in
             if playing {
-                if let track = content.musicTrack, audioPlayer.currentTrack == nil {
-                    audioPlayer.play(track)
-                } else {
+                if let track = content.musicTrack {
                     audioPlayer.resume()
                 }
             } else {
