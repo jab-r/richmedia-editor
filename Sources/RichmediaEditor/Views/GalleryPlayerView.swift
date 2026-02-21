@@ -38,28 +38,8 @@ public struct GalleryPlayerView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
 
-            // Music track indicator
-            if let track = content.musicTrack {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Image(systemName: "music.note")
-                            .font(.caption2)
-                        Text("\(track.trackName) — \(track.artistName)")
-                            .font(.caption2)
-                            .lineLimit(1)
-                    }
-                    .foregroundColor(.white.opacity(0.8))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
-                    .padding(.bottom, 80)
-                }
-            }
-
             // Overlay controls
-            VStack {
+            VStack(spacing: 0) {
                 // Top bar
                 HStack {
                     Button(action: {
@@ -127,6 +107,22 @@ public struct GalleryPlayerView: View {
                             )
                         )
                     }
+                }
+
+                // Song title at the very bottom
+                if let track = content.musicTrack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "music.note")
+                            .font(.caption)
+                        Text("\(track.trackName) — \(track.artistName)")
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.white.opacity(0.9))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.5))
                 }
             }
         }

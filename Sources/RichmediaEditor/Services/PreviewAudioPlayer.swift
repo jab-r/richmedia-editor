@@ -17,6 +17,7 @@ public class PreviewAudioPlayer: ObservableObject {
 
     private var player: AVPlayer?
     private var loopObserver: Any?
+    private var statusCancellable: AnyCancellable?
 
     public init() {}
 
@@ -32,6 +33,15 @@ public class PreviewAudioPlayer: ObservableObject {
         let avPlayer = AVPlayer(playerItem: playerItem)
         self.player = avPlayer
         self.currentTrack = track
+
+        // Observe player item status — ensure playback starts once buffered
+        statusCancellable = playerItem.publisher(for: \.status)
+            .sink { [weak self] status in
+                Task { @MainActor [weak self] in
+                    guard let self, status == .readyToPlay else { return }
+                    self.player?.play()
+                }
+            }
 
         // Loop: when playback ends, seek back to start
         loopObserver = NotificationCenter.default.addObserver(
@@ -64,6 +74,8 @@ public class PreviewAudioPlayer: ObservableObject {
     /// Stop playback and release player
     public func stop() {
         player?.pause()
+        statusCancellable?.cancel()
+        statusCancellable = nil
         if let observer = loopObserver {
             NotificationCenter.default.removeObserver(observer)
             loopObserver = nil
