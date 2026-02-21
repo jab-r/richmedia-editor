@@ -37,7 +37,9 @@ struct MusicSearchView: View {
                 .padding(.top, 8)
 
                 // Content
-                if searchService.authorizationStatus == .notDetermined {
+                if !searchService.isMusicKitAvailable {
+                    plistMissingView
+                } else if searchService.authorizationStatus == .notDetermined {
                     authorizationPrompt
                 } else if searchService.authorizationStatus == .denied {
                     deniedView
@@ -64,13 +66,32 @@ struct MusicSearchView: View {
                 searchService.search(query: newValue)
             }
             .task {
-                if searchService.authorizationStatus == .notDetermined {
+                if searchService.isMusicKitAvailable && searchService.authorizationStatus == .notDetermined {
                     await searchService.requestAuthorization()
                 }
             }
             .onDisappear {
                 audioPlayer.stop()
             }
+        }
+    }
+
+    // MARK: - Missing Plist Key
+
+    private var plistMissingView: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundColor(.orange)
+            Text("Music Not Configured")
+                .font(.title3.bold())
+            Text("Add NSAppleMusicUsageDescription to your app's Info.plist to enable Apple Music search.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
         }
     }
 
