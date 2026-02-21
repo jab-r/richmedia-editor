@@ -12,11 +12,15 @@ public struct RichPostContent: Codable, Equatable {
     public var version: Int
     public var blocks: [RichPostBlock]
 
+    /// Background music track (Apple Music 30-sec preview, loops during playback)
+    public var musicTrack: MusicTrack?
+
     public static let contentType = "application/vnd.loxation.richmedia+json"
 
-    public init(version: Int = 1, blocks: [RichPostBlock] = []) {
+    public init(version: Int = 1, blocks: [RichPostBlock] = [], musicTrack: MusicTrack? = nil) {
         self.version = version
         self.blocks = blocks
+        self.musicTrack = musicTrack
     }
 
     /// Convert to JSON string for API submission
