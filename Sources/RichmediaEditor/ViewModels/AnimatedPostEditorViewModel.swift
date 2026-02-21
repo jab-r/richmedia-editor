@@ -30,10 +30,13 @@ public class AnimatedPostEditorViewModel: ObservableObject {
     /// EXIF GPS location from the first image added (nil if no GPS data)
     @Published public var firstImageLocation: CLLocationCoordinate2D? = nil
 
+    /// Background music track (Apple Music preview)
+    @Published public var musicTrack: MusicTrack?
+
     // MARK: - Computed Properties
 
     public var richContent: RichPostContent {
-        RichPostContent(version: 1, blocks: blocks)
+        RichPostContent(version: 1, blocks: blocks, musicTrack: musicTrack)
     }
 
     public var selectedBlock: RichPostBlock? {
@@ -294,11 +297,19 @@ public class AnimatedPostEditorViewModel: ObservableObject {
         blocks[blockIndex].lottieOverlay = lottie
     }
 
+    // MARK: - Music
+
+    /// Set or clear the background music track
+    public func setMusicTrack(_ track: MusicTrack?) {
+        musicTrack = track
+    }
+
     // MARK: - Content Loading
 
     /// Load existing RichPostContent for re-editing
     public func loadContent(_ content: RichPostContent, localImages: [UUID: UIImage] = [:]) {
         self.blocks = content.blocks
+        self.musicTrack = content.musicTrack
         self.localImages = localImages
         if let firstBlock = blocks.first {
             selectedBlockId = firstBlock.id

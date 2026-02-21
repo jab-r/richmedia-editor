@@ -18,6 +18,7 @@ public struct GalleryPlayerView: View {
 
     @State private var currentPage = 0
     @State private var isPlaying = true
+    @StateObject private var audioPlayer = PreviewAudioPlayer()
 
     public init(content: RichPostContent, localImages: [UUID: UIImage] = [:]) {
         self.content = content
@@ -36,6 +37,26 @@ public struct GalleryPlayerView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+
+            // Music track indicator
+            if let track = content.musicTrack {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Image(systemName: "music.note")
+                            .font(.caption2)
+                        Text("\(track.trackName) — \(track.artistName)")
+                            .font(.caption2)
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(.bottom, 80)
+                }
+            }
 
             // Overlay controls
             VStack {
@@ -107,6 +128,25 @@ public struct GalleryPlayerView: View {
                         )
                     }
                 }
+            }
+        }
+        .onAppear {
+            if let track = content.musicTrack {
+                audioPlayer.play(track)
+            }
+        }
+        .onDisappear {
+            audioPlayer.stop()
+        }
+        .onChange(of: isPlaying) { playing in
+            if playing {
+                if let track = content.musicTrack, audioPlayer.currentTrack == nil {
+                    audioPlayer.play(track)
+                } else {
+                    audioPlayer.resume()
+                }
+            } else {
+                audioPlayer.pause()
             }
         }
     }

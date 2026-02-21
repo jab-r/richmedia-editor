@@ -32,6 +32,8 @@ public struct AnimatedPostEditorView: View {
     @State private var mediaPickerTarget: UUID?
     @State private var showHelp = false
     @State private var showLottiePicker = false
+    @State private var showMusicPicker = false
+    @StateObject private var audioPlayer = PreviewAudioPlayer()
     @State private var keyboardHeight: CGFloat = 0
     @State private var floatingText: String = ""
     @FocusState private var floatingFieldFocused: Bool
@@ -195,7 +197,22 @@ public struct AnimatedPostEditorView: View {
             if playing {
                 viewModel.editingLayerId = nil
                 viewModel.selectedLayerId = nil
+                // Start music preview if a track is set
+                if let track = viewModel.musicTrack {
+                    audioPlayer.play(track)
+                }
+            } else {
+                audioPlayer.pause()
             }
+        }
+        .onChange(of: viewModel.musicTrack) { track in
+            // If track removed, stop audio
+            if track == nil {
+                audioPlayer.stop()
+            }
+        }
+        .onDisappear {
+            audioPlayer.stop()
         }
         .sheet(isPresented: $showHelp) {
             helpView
@@ -206,6 +223,14 @@ public struct AnimatedPostEditorView: View {
                     viewModel.setLottieOverlay(lottieAnimation, for: blockId)
                 }
             }
+        }
+        .sheet(isPresented: $showMusicPicker) {
+            MusicSearchView(
+                currentTrack: viewModel.musicTrack,
+                onSelect: { track in
+                    viewModel.setMusicTrack(track)
+                }
+            )
         }
         .onAppear {
             setupInitialContent()
@@ -283,6 +308,11 @@ public struct AnimatedPostEditorView: View {
 
     private var editorContentView: some View {
         VStack(spacing: 0) {
+            // Music indicator pill
+            if let track = viewModel.musicTrack {
+                musicIndicator(track: track)
+            }
+
             // Main canvas area — always gallery mode
             galleryView
 
@@ -291,6 +321,38 @@ public struct AnimatedPostEditorView: View {
             // Bottom toolbar
             editorToolbar
                 .background(.ultraThinMaterial)
+        }
+    }
+
+    private func musicIndicator(track: MusicTrack) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "music.note")
+                .font(.caption)
+                .foregroundStyle(.pink.gradient)
+
+            Text("\(track.trackName) — \(track.artistName)")
+                .font(.caption2)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button(action: {
+                viewModel.setMusicTrack(nil)
+            }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .onTapGesture {
+            showMusicPicker = true
         }
     }
 
@@ -399,6 +461,20 @@ public struct AnimatedPostEditorView: View {
                         .font(.title2)
                         .foregroundStyle(.orange.gradient)
                     Text("Lottie")
+                        .font(.caption2)
+                }
+            }
+            .disabled(viewModel.blocks.isEmpty)
+
+            // Music button
+            Button(action: {
+                showMusicPicker = true
+            }) {
+                VStack(spacing: 4) {
+                    Image(systemName: viewModel.musicTrack != nil ? "music.note.list" : "music.note")
+                        .font(.title2)
+                        .foregroundStyle(.pink.gradient)
+                    Text("Music")
                         .font(.caption2)
                 }
             }
