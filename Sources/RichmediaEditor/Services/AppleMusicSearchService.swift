@@ -17,15 +17,26 @@ public class AppleMusicSearchService: ObservableObject {
     @Published public var isSearching = false
     @Published public var authorizationStatus: MusicAuthorization.Status = .notDetermined
     @Published public var errorMessage: String?
+    @Published public var isMusicKitAvailable: Bool = false
 
     private var searchTask: Task<Void, Never>?
 
+    /// Check whether the host app has the required NSAppleMusicUsageDescription plist key.
+    /// Accessing MusicKit APIs without it causes an immediate crash.
+    static var hasUsageDescription: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "NSAppleMusicUsageDescription") != nil
+    }
+
     public init() {
-        authorizationStatus = MusicAuthorization.currentStatus
+        if Self.hasUsageDescription {
+            isMusicKitAvailable = true
+            authorizationStatus = MusicAuthorization.currentStatus
+        }
     }
 
     /// Request MusicKit authorization (one-time system prompt)
     public func requestAuthorization() async {
+        guard isMusicKitAvailable else { return }
         let status = await MusicAuthorization.request()
         authorizationStatus = status
     }
@@ -39,6 +50,11 @@ public class AppleMusicSearchService: ObservableObject {
         guard !trimmed.isEmpty else {
             results = []
             isSearching = false
+            return
+        }
+
+        guard isMusicKitAvailable else {
+            errorMessage = "Apple Music is not configured. Add NSAppleMusicUsageDescription to your Info.plist."
             return
         }
 
