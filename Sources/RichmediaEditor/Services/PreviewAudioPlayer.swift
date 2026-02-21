@@ -17,6 +17,7 @@ public class PreviewAudioPlayer: ObservableObject {
 
     private var player: AVPlayer?
     private var loopObserver: Any?
+    private var statusCancellable: AnyCancellable?
 
     public init() {}
 
@@ -32,6 +33,26 @@ public class PreviewAudioPlayer: ObservableObject {
         let avPlayer = AVPlayer(playerItem: playerItem)
         self.player = avPlayer
         self.currentTrack = track
+
+        // Observe player item status — ensure playback starts once buffered,
+        // and recover if the item fails (e.g. expired preview URL)
+        statusCancellable = playerItem.publisher(for: \.status)
+            .sink { [weak self] status in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    switch status {
+                    case .readyToPlay:
+                        // Only auto-play if we haven't been paused in the meantime
+                        if self.isPlaying {
+                            self.player?.play()
+                        }
+                    case .failed:
+                        self.isPlaying = false
+                    default:
+                        break
+                    }
+                }
+            }
 
         // Loop: when playback ends, seek back to start
         loopObserver = NotificationCenter.default.addObserver(
@@ -55,8 +76,15 @@ public class PreviewAudioPlayer: ObservableObject {
         isPlaying = false
     }
 
-    /// Resume paused playback
+    /// Resume paused playback — re-creates the player if it was lost or failed
     public func resume() {
+        // If the player or its item are in a bad state, re-create from scratch
+        if player == nil || player?.currentItem?.status == .failed {
+            if let track = currentTrack {
+                play(track)
+            }
+            return
+        }
         player?.play()
         isPlaying = true
     }
@@ -64,6 +92,8 @@ public class PreviewAudioPlayer: ObservableObject {
     /// Stop playback and release player
     public func stop() {
         player?.pause()
+        statusCancellable?.cancel()
+        statusCancellable = nil
         if let observer = loopObserver {
             NotificationCenter.default.removeObserver(observer)
             loopObserver = nil
