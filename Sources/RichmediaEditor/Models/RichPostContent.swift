@@ -15,16 +15,12 @@ public struct RichPostContent: Codable, Equatable {
     /// Background music track (Apple Music 30-sec preview, loops during playback)
     public var musicTrack: MusicTrack?
 
-    /// Display flags (e.g., "pinned", "featured", "autoplay")
-    public var flags: [String]?
-
     public static let contentType = "application/vnd.loxation.richmedia+json"
 
-    public init(version: Int = 1, blocks: [RichPostBlock] = [], musicTrack: MusicTrack? = nil, flags: [String]? = nil) {
+    public init(version: Int = 1, blocks: [RichPostBlock] = [], musicTrack: MusicTrack? = nil) {
         self.version = version
         self.blocks = blocks
         self.musicTrack = musicTrack
-        self.flags = flags
     }
 
     /// Convert to JSON string for API submission
