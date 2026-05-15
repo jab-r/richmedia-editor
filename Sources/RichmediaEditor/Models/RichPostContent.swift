@@ -15,12 +15,28 @@ public struct RichPostContent: Codable, Equatable {
     /// Background music track (Apple Music 30-sec preview, loops during playback)
     public var musicTrack: MusicTrack?
 
+    /// Opaque display/threading flags (e.g. "pinned", "featured", "autoplay").
+    /// The editor does not interpret values — round-trip only for the consuming app.
+    public var flags: [String]?
+
+    /// If set, this post is a reply to another public post (UUID string).
+    /// The editor does not render this — round-trip only for the consuming app.
+    public var replyToId: String?
+
     public static let contentType = "application/vnd.loxation.richmedia+json"
 
-    public init(version: Int = 1, blocks: [RichPostBlock] = [], musicTrack: MusicTrack? = nil) {
+    public init(
+        version: Int = 1,
+        blocks: [RichPostBlock] = [],
+        musicTrack: MusicTrack? = nil,
+        flags: [String]? = nil,
+        replyToId: String? = nil
+    ) {
         self.version = version
         self.blocks = blocks
         self.musicTrack = musicTrack
+        self.flags = flags
+        self.replyToId = replyToId
     }
 
     /// Convert to JSON string for API submission

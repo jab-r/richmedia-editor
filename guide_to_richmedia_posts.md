@@ -18,7 +18,9 @@ When a post has this `contentType`, the `message` field contains JSON (not plain
 {
   "version": 1,
   "blocks": [ ... ],
-  "musicTrack": { ... }
+  "musicTrack": { ... },
+  "flags": ["pinned", "autoplay"],
+  "replyToId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -27,6 +29,8 @@ When a post has this `contentType`, the `message` field contains JSON (not plain
 | `version` | int | yes | Schema version. Currently `1` |
 | `blocks` | array | yes | Ordered list of `RichPostBlock` objects |
 | `musicTrack` | MusicTrack | no | Background music track (Apple Music 30-second preview, loops during playback) |
+| `flags` | array of string | no | Opaque display/threading flags interpreted by the consuming app (e.g. `"pinned"`, `"featured"`, `"autoplay"`). Omitted when unused. The editor library does not interpret values — round-trip only |
+| `replyToId` | UUID string | no | If present, this post is a reply to another public post with the given id. Omitted when not a reply. The editor library does not render this — round-trip only |
 
 ---
 

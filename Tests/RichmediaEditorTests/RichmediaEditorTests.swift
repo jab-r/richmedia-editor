@@ -119,6 +119,57 @@ final class RichmediaEditorTests: XCTestCase {
         XCTAssertEqual(decoded?.blocks.first?.textLayers?.first?.text, "Test")
     }
 
+    func testRichPostContentFlagsAndReplyToIdRoundTrip() {
+        // (1) flags round-trip
+        let withFlags = RichPostContent(blocks: [], flags: ["pinned"])
+        let decodedFlags = RichPostContent.fromJSONString(withFlags.toJSONString()!)
+        XCTAssertEqual(decodedFlags?.flags, ["pinned"])
+
+        // (2) replyToId round-trip
+        let withReply = RichPostContent(blocks: [], replyToId: "abc")
+        let decodedReply = RichPostContent.fromJSONString(withReply.toJSONString()!)
+        XCTAssertEqual(decodedReply?.replyToId, "abc")
+
+        // (3) absent keys decode to nil
+        let legacy = #"{"version":1,"blocks":[]}"#
+        let decodedLegacy = RichPostContent.fromJSONString(legacy)
+        XCTAssertNil(decodedLegacy?.flags)
+        XCTAssertNil(decodedLegacy?.replyToId)
+
+        // (4) nil fields are omitted from JSON (no "flags": null / "replyToId": null)
+        let bare = RichPostContent(blocks: [])
+        let bareJSON = bare.toJSONString()!
+        XCTAssertFalse(bareJSON.contains("\"flags\""))
+        XCTAssertFalse(bareJSON.contains("\"replyToId\""))
+
+        // (5) animations + musicTrack + flags all survive the same round-trip
+        let layer = TextLayer(
+            text: "Hi",
+            position: LayerPosition(x: 0.5, y: 0.5),
+            style: TextLayerStyle()
+        )
+        let block = RichPostBlock(
+            image: "p1",
+            url: "https://example.com/p.jpg",
+            textLayers: [layer]
+        )
+        let music = MusicTrack(
+            trackName: "Test Track",
+            artistName: "Test Artist",
+            previewURL: "https://example.com/preview.m4a",
+            appleMusicID: "12345"
+        )
+        let full = RichPostContent(
+            blocks: [block],
+            musicTrack: music,
+            flags: ["pinned"]
+        )
+        let decodedFull = RichPostContent.fromJSONString(full.toJSONString()!)
+        XCTAssertEqual(decodedFull?.flags, ["pinned"])
+        XCTAssertEqual(decodedFull?.musicTrack?.trackName, "Test Track")
+        XCTAssertEqual(decodedFull?.blocks.first?.textLayers?.first?.text, "Hi")
+    }
+
     func testBlockTypeDetection() {
         let imageBlock = RichPostBlock(image: "photo123", url: "https://example.com/photo.jpg")
         XCTAssertEqual(imageBlock.blockType, .image)
